@@ -137,6 +137,120 @@ def load_excel_data(uploaded_file):
         st.error(f"❌ Error reading Excel file: {str(e)}")
         return None, None
 
+def prepare_data_for_reconciliation(df_tally, df_gstr):
+    """
+    Prepare data for reconciliation with priority-based matching:
+    1. First priority: GSTIN of supplier
+    2. Second priority: Supplier name (when GSTIN is blank)
+    """
+    # Clean and prepare both dataframes
+    for df in [df_tally, df_gstr]:
+        df.columns = df.columns.str.strip()
+        if 'Cess' not in df.columns:
+            df['Cess'] = 0
+    
+    # Get required columns
+    try:
+        col_gstin_tally = get_column(df_tally, 'GSTIN of supplier')
+        col_gstin_gstr = get_column(df_gstr, 'GSTIN of supplier')
+        gstin_available = True
+    except KeyError:
+        gstin_available = False
+        st.warning("⚠️ GSTIN columns not found. Will use supplier names only.")
+    
+    col_supplier_tally = get_column(df_tally, 'Supplier')
+    col_supplier_gstr = get_column(df_gstr, 'Supplier')
+    
+    # Create composite keys for matching
+    def create_composite_key(df, gstin_col, supplier_col):
+        """Create a composite key with priority: GSTIN first, then Supplier name"""
+        df_copy = df.copy()
+        
+        if gstin_available:
+            # Fill NaN GSTIN values
+            df_copy[gstin_col] = df_copy[gstin_col].fillna('').astype(str).str.strip()
+            df_copy[supplier_col] = df_copy[supplier_col].fillna('').astype(str).str.strip()
+            
+            # Create composite key: use GSTIN if available, otherwise use Supplier name
+            df_copy['Match_Key'] = df_copy.apply(
+                lambda row: row[gstin_col] if row[gstin_col] and row[gstin_col] != '' 
+                           else f"NAME_{row[supplier_col]}", axis=1
+            )
+            df_copy['Match_Type'] = df_copy.apply(
+                lambda row: 'GSTIN' if row[gstin_col] and row[gstin_col] != '' 
+                           else 'NAME', axis=1
+            )
+        else:
+            # Only supplier names available
+            df_copy[supplier_col] = df_copy[supplier_col].fillna('').astype(str).str.strip()
+            df_copy['Match_Key'] = df_copy[supplier_col].apply(lambda x: f"NAME_{x}")
+            df_copy['Match_Type'] = 'NAME'
+        
+        return df_copy
+    
+    if gstin_available:
+        df_tally_prep = create_composite_key(df_tally, col_gstin_tally, col_supplier_tally)
+        df_gstr_prep = create_composite_key(df_gstr, col_gstin_gstr, col_supplier_gstr)
+    else:
+        df_tally_prep = create_composite_key(df_tally, None, col_supplier_tally)
+        df_gstr_prep = create_composite_key(df_gstr, None, col_supplier_gstr)
+    
+    return df_tally_prep, df_gstr_prep
+
+def perform_priority_reconciliation(df_tally_prep, df_gstr_prep):
+    """
+    Perform reconciliation with priority matching
+    """
+    # Group and aggregate by Match_Key
+    numeric_cols = ['Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT tax', 'Cess']
+    
+    # Ensure numeric columns exist and are numeric
+    for df in [df_tally_prep, df_gstr_prep]:
+        for col in numeric_cols:
+            if col not in df.columns:
+                df[col] = 0
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    
+    # Group by Match_Key and aggregate
+    agg_dict = {col: 'sum' for col in numeric_cols}
+    agg_dict.update({
+        'Supplier': 'first',  # Take first supplier name for display
+        'Match_Type': 'first'  # Take first match type
+    })
+    
+    # Add GSTIN columns if available
+    try:
+        col_gstin_tally = get_column(df_tally_prep, 'GSTIN of supplier')
+        col_gstin_gstr = get_column(df_gstr_prep, 'GSTIN of supplier')
+        agg_dict['GSTIN of supplier'] = 'first'
+    except KeyError:
+        pass
+    
+    df_tally_grouped = df_tally_prep.groupby('Match_Key').agg(agg_dict).reset_index()
+    df_gstr_grouped = df_gstr_prep.groupby('Match_Key').agg(agg_dict).reset_index()
+    
+    # Merge the grouped data
+    df_combined = pd.merge(
+        df_gstr_grouped, df_tally_grouped,
+        on='Match_Key', how='outer',
+        suffixes=('_GSTR', '_Tally')
+    ).fillna(0)
+    
+    # Calculate variances
+    for col in numeric_cols:
+        df_combined[f'{col} Variance'] = df_combined[f'{col}_GSTR'] - df_combined[f'{col}_Tally']
+    
+    # Add match information
+    df_combined['Supplier'] = df_combined.apply(
+        lambda row: row['Supplier_GSTR'] if row['Supplier_GSTR'] != 0 else row['Supplier_Tally'], axis=1
+    )
+    
+    df_combined['Match_Type'] = df_combined.apply(
+        lambda row: row['Match_Type_GSTR'] if row['Match_Type_GSTR'] != 0 else row['Match_Type_Tally'], axis=1
+    )
+    
+    return df_combined, df_tally_grouped, df_gstr_grouped
+
 # --- Fuzzy Matching Logic ---
 def two_way_match(tally_list, gstr_list, threshold):
     match_map, used_tally, used_gstr, results = {}, set(), set(), []
@@ -222,7 +336,6 @@ def main():
     # Show navigation only if file is uploaded
     if st.session_state.uploaded_file_content is not None:
         st.sidebar.title("🧭 Navigation")
-        # Add a key to maintain selection state
         page = st.sidebar.radio("Choose a function:", [
             "🔍 Fuzzy Matching",
             "🔄 Name Replacement",
@@ -233,9 +346,7 @@ def main():
         # Show workflow status
         st.sidebar.markdown("---")
         st.sidebar.subheader("📋 Workflow Status")
-        # File status
         st.sidebar.success("✅ File Loaded")
-        # Matching status
         if st.session_state.matching_completed:
             st.sidebar.success("✅ Matching Complete")
             match_count = len([m for m in st.session_state.final_matches if m[1] != '' and m[3] == 'Yes'])
@@ -413,11 +524,11 @@ def main():
         
         elif page == "📊 GST Reconciliation":
             st.header("📊 GST Reconciliation")
-            st.info("💡 This function works with the original data, regardless of name matching.")
+            st.info("💡 Priority matching: GSTIN first, then Supplier name when GSTIN is blank")
             
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.write("Click the button below to generate a comprehensive GST reconciliation report.")
+                st.write("Click the button below to generate a comprehensive GST reconciliation report with priority-based matching.")
             with col2:
                 use_replaced_names = st.checkbox("Use replaced names",
                                                value=st.session_state.matching_completed,
@@ -425,7 +536,7 @@ def main():
             
             if st.button("📊 Run GST Reconciliation", type="primary"):
                 try:
-                    with st.spinner("Processing reconciliation..."):
+                    with st.spinner("Processing reconciliation with priority matching..."):
                         df_tally = st.session_state.df_tally.copy()
                         df_gstr = st.session_state.df_gstr.copy()
                         
@@ -437,92 +548,77 @@ def main():
                             df_tally[col_supplier] = df_tally[col_supplier].apply(lambda x: name_map.get(x, x))
                             st.info(f"🔄 Applied {len(name_map)} name replacements to Tally data")
                         
-                        # Add Cess column if missing
-                        for df in [df_tally, df_gstr]:
-                            if 'Cess' not in df.columns:
-                                df['Cess'] = 0
+                        # Prepare data with priority matching
+                        df_tally_prep, df_gstr_prep = prepare_data_for_reconciliation(df_tally, df_gstr)
                         
-                        col_name = get_column(df_tally, 'Supplier')
-                        col_itax = get_column(df_tally, 'Integrated Tax')
-                        col_ctax = get_column(df_tally, 'Central Tax')
-                        col_stax = get_column(df_tally, 'State/UT tax')
+                        # Perform priority-based reconciliation
+                        df_combined, df_tally_grouped, df_gstr_grouped = perform_priority_reconciliation(df_tally_prep, df_gstr_prep)
                         
-                        # Try GSTIN grouping, fallback to name
-                        try:
-                            col_gstin_tally = get_column(df_tally, 'GSTIN of supplier')
-                            col_gstin_gstr = get_column(df_gstr, 'GSTIN of supplier')
-                            group_cols = [col_gstin_tally]
-                        except KeyError:
-                            group_cols = [col_name]
+                        # Calculate summary statistics
+                        numeric_cols = ['Integrated Tax', 'Central Tax', 'State/UT tax']
                         
-                        # Fill NaN values
-                        for df in [df_tally, df_gstr]:
-                            for col in group_cols:
-                                df[col] = df[col].fillna('UNKNOWN')
+                        # Summary by match type
+                        match_type_summary = df_combined.groupby('Match_Type').agg({
+                            f'{col}_GSTR': 'sum' for col in numeric_cols
+                        }).reset_index()
                         
-                        # Group and aggregate
-                        df_tally_grp = df_tally.groupby(group_cols).sum(numeric_only=True).reset_index()
-                        df_gstr_grp = df_gstr.groupby(group_cols).sum(numeric_only=True).reset_index()
-                        
-                        # Inner join for variance calculation
-                        df_combined = pd.merge(df_gstr_grp, df_tally_grp, on=group_cols, how='inner', suffixes=('_GSTR', '_Tally'))
-                        df_combined['Integrated Tax Variance'] = df_combined[col_itax + '_GSTR'] - df_combined[col_itax + '_Tally']
-                        df_combined['Central Tax Variance'] = df_combined[col_ctax + '_GSTR'] - df_combined[col_ctax + '_Tally']
-                        df_combined['State/UT Tax Variance'] = df_combined[col_stax + '_GSTR'] - df_combined[col_stax + '_Tally']
-                        
-                        # Outer join for missing records
-                        df_combined_outer = pd.merge(df_gstr_grp, df_tally_grp, on=group_cols, how='outer', suffixes=('_GSTR', '_Tally'))
-                        not_in_tally = df_combined_outer[df_combined_outer[col_itax + '_Tally'].isna()]
-                        not_in_gstr = df_combined_outer[df_combined_outer[col_itax + '_GSTR'].isna()]
-                        
-                        # Summary
+                        # Overall summary
                         df_summary = pd.DataFrame({
-                            'Particulars': ['GST Input as per GSTR-2A Sheet', 'GST Input as per Tally', 'Variance (1-2)'],
+                            'Particulars': ['GST Input as per GSTR-2A Sheet', 'GST Input as per Tally', 'Variance (GSTR - Tally)'],
                             'Integrated Tax': [
-                                df_gstr_grp[col_itax].sum(),
-                                df_tally_grp[col_itax].sum(),
-                                df_gstr_grp[col_itax].sum() - df_tally_grp[col_itax].sum()
+                                df_gstr_grouped['Integrated Tax'].sum(),
+                                df_tally_grouped['Integrated Tax'].sum(),
+                                df_gstr_grouped['Integrated Tax'].sum() - df_tally_grouped['Integrated Tax'].sum()
                             ],
                             'Central Tax': [
-                                df_gstr_grp[col_ctax].sum(),
-                                df_tally_grp[col_ctax].sum(),
-                                df_gstr_grp[col_ctax].sum() - df_tally_grp[col_ctax].sum()
+                                df_gstr_grouped['Central Tax'].sum(),
+                                df_tally_grouped['Central Tax'].sum(),
+                                df_gstr_grouped['Central Tax'].sum() - df_tally_grouped['Central Tax'].sum()
                             ],
                             'State/UT Tax': [
-                                df_gstr_grp[col_stax].sum(),
-                                df_tally_grp[col_stax].sum(),
-                                df_gstr_grp[col_stax].sum() - df_tally_grp[col_stax].sum()
+                                df_gstr_grouped['State/UT tax'].sum(),
+                                df_tally_grouped['State/UT tax'].sum(),
+                                df_gstr_grouped['State/UT tax'].sum() - df_tally_grouped['State/UT tax'].sum()
                             ]
                         })
+                        
+                        # Separate records by presence
+                        not_in_tally = df_combined[(df_combined['Integrated Tax_Tally'] == 0) & (df_combined['Integrated Tax_GSTR'] != 0)]
+                        not_in_gstr = df_combined[(df_combined['Integrated Tax_GSTR'] == 0) & (df_combined['Integrated Tax_Tally'] != 0)]
+                        both_present = df_combined[(df_combined['Integrated Tax_GSTR'] != 0) & (df_combined['Integrated Tax_Tally'] != 0)]
                         
                         # Reconciliation details
                         df_recon = pd.DataFrame({
                             'Particulars': [
                                 'Not in Tally but found in GSTR-2A',
                                 'Not in GSTR-2A but found in Tally',
-                                'Difference in Input between Tally and GSTR-2A'
+                                'Present in both (Variance)',
+                                'Total Variance'
                             ],
                             'Integrated Tax': [
-                                not_in_tally[col_itax + '_GSTR'].sum(),
-                                not_in_gstr[col_itax + '_Tally'].sum(),
+                                not_in_tally['Integrated Tax_GSTR'].sum(),
+                                not_in_gstr['Integrated Tax_Tally'].sum(),
+                                both_present['Integrated Tax Variance'].sum(),
                                 df_combined['Integrated Tax Variance'].sum()
                             ],
                             'Central Tax': [
-                                not_in_tally[col_ctax + '_GSTR'].sum(),
-                                not_in_gstr[col_ctax + '_Tally'].sum(),
+                                not_in_tally['Central Tax_GSTR'].sum(),
+                                not_in_gstr['Central Tax_Tally'].sum(),
+                                both_present['Central Tax Variance'].sum(),
                                 df_combined['Central Tax Variance'].sum()
                             ],
                             'State/UT Tax': [
-                                not_in_tally[col_stax + '_GSTR'].sum(),
-                                not_in_gstr[col_stax + '_Tally'].sum(),
+                                not_in_tally['State/UT tax_GSTR'].sum(),
+                                not_in_gstr['State/UT tax_Tally'].sum(),
+                                both_present['State/UT Tax Variance'].sum(),
                                 df_combined['State/UT Tax Variance'].sum()
                             ]
                         })
                         
-                        st.success("✅ Reconciliation completed!")
+                        st.success("✅ Priority-based reconciliation completed!")
                         
                         # Display results in tabs
-                        tab1, tab2, tab3 = st.tabs(["📊 Summary", "🔍 Details", "📥 Downloads"])
+                        tab1, tab2, tab3, tab4 = st.tabs(["📊 Summary", "🎯 Match Types", "🔍 Details", "📥 Downloads"])
                         
                         with tab1:
                             col1, col2 = st.columns(2)
@@ -534,27 +630,49 @@ def main():
                                 st.dataframe(df_recon, use_container_width=True)
                         
                         with tab2:
-                            st.subheader("Detailed Comparison")
-                            st.dataframe(df_combined, use_container_width=True)
+                            st.subheader("Matching Statistics by Type")
+                            gstin_matches = len(df_combined[df_combined['Match_Type'] == 'GSTIN'])
+                            name_matches = len(df_combined[df_combined['Match_Type'] == 'NAME'])
                             
-                            if len(not_in_tally) > 0:
-                                st.subheader("Not in Tally but in GSTR-2A")
-                                st.dataframe(not_in_tally, use_container_width=True)
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("🏢 GSTIN Matches", gstin_matches)
+                            with col2:
+                                st.metric("📝 Name Matches", name_matches)
+                            with col3:
+                                st.metric("📊 Total Unique Suppliers", len(df_combined))
                             
-                            if len(not_in_gstr) > 0:
-                                st.subheader("Not in GSTR-2A but in Tally")
-                                st.dataframe(not_in_gstr, use_container_width=True)
+                            if len(match_type_summary) > 0:
+                                st.subheader("Tax Summary by Match Type")
+                                st.dataframe(match_type_summary, use_container_width=True)
                         
                         with tab3:
+                            st.subheader("Detailed Comparison")
+                            # Show match type in the detailed view
+                            display_cols = ['Match_Key', 'Supplier', 'Match_Type'] + \
+                                         [col for col in df_combined.columns if '_GSTR' in col or '_Tally' in col or 'Variance' in col]
+                            st.dataframe(df_combined[display_cols], use_container_width=True)
+                            
+                            if len(not_in_tally) > 0:
+                                st.subheader("Records Not in Tally but in GSTR-2A")
+                                st.dataframe(not_in_tally[display_cols], use_container_width=True)
+                            
+                            if len(not_in_gstr) > 0:
+                                st.subheader("Records Not in GSTR-2A but in Tally")
+                                st.dataframe(not_in_gstr[display_cols], use_container_width=True)
+                        
+                        with tab4:
                             # Create download with multiple sheets
                             sheets_dict = {
-                                'GST_Input_Summary': df_summary,
+                                'Summary': df_summary,
                                 'Reconciliation': df_recon,
-                                'T_vs_G-2A': df_combined,
-                                'N_I_T_B_I_G': not_in_tally,
-                                'N_I_G_B_I_T': not_in_gstr
+                                'Match_Type_Summary': match_type_summary,
+                                'Detailed_Comparison': df_combined,
+                                'Not_in_Tally': not_in_tally,
+                                'Not_in_GSTR': not_in_gstr,
+                                'Both_Present': both_present
                             }
-                            st.markdown(create_multi_sheet_download(sheets_dict, "GST_Reconciliation_Report.xlsx"), unsafe_allow_html=True)
+                            st.markdown(create_multi_sheet_download(sheets_dict, "Priority_GST_Reconciliation.xlsx"), unsafe_allow_html=True)
                         
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
@@ -562,33 +680,43 @@ def main():
         
         elif page == "🧾 Invoice-wise Reconciliation":
             st.header("🧾 Invoice-wise Reconciliation")
+            st.info("💡 Priority matching: GSTIN first, then Supplier name when GSTIN is blank")
             
             if st.button("🧾 Run Invoice-wise Reconciliation", type="primary"):
                 try:
-                    with st.spinner("Processing invoice-wise reconciliation..."):
+                    with st.spinner("Processing invoice-wise reconciliation with priority matching..."):
                         df_tally = st.session_state.df_tally.copy()
                         df_gstr = st.session_state.df_gstr.copy()
                         
-                        # Clean and prepare data
-                        for df in [df_tally, df_gstr]:
-                            df.columns = df.columns.str.strip()
-                            if 'Cess' not in df.columns:
-                                df['Cess'] = 0
-                            df['GSTIN of supplier'] = df['GSTIN of supplier'].fillna('No GSTIN')
+                        # Prepare data for reconciliation
+                        df_tally_prep, df_gstr_prep = prepare_data_for_reconciliation(df_tally, df_gstr)
                         
-                        group_columns = ['GSTIN of supplier', 'Supplier', 'Invoice number']
+                        # Group by Match_Key and Invoice number for invoice-wise analysis
+                        group_columns = ['Match_Key', 'Invoice number']
                         
-                        def consolidate(df):
-                            return df.groupby(group_columns).agg({
-                                'Taxable Value': 'sum',
-                                'Integrated Tax': 'sum',
-                                'Central Tax': 'sum',
-                                'State/UT tax': 'sum',
-                                'Cess': 'sum'
-                            }).reset_index()
+                        def consolidate_invoice_wise(df):
+                            # Ensure Invoice number column exists
+                            if 'Invoice number' not in df.columns:
+                                df['Invoice number'] = 'N/A'
+                            
+                            numeric_cols = ['Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT tax', 'Cess']
+                            agg_dict = {col: 'sum' for col in numeric_cols if col in df.columns}
+                            agg_dict.update({
+                                'Supplier': 'first',
+                                'Match_Type': 'first'
+                            })
+                            
+                            # Add GSTIN if available
+                            try:
+                                gstin_col = get_column(df, 'GSTIN of supplier')
+                                agg_dict[gstin_col] = 'first'
+                            except KeyError:
+                                pass
+                            
+                            return df.groupby(group_columns).agg(agg_dict).reset_index()
                         
-                        tally_grouped = consolidate(df_tally)
-                        gstr_grouped = consolidate(df_gstr)
+                        tally_grouped = consolidate_invoice_wise(df_tally_prep)
+                        gstr_grouped = consolidate_invoice_wise(df_gstr_prep)
                         
                         df_combined = pd.merge(
                             gstr_grouped, tally_grouped,
@@ -597,21 +725,45 @@ def main():
                         ).fillna(0)
                         
                         # Calculate variances
-                        df_combined['Taxable Value Variance'] = df_combined['Taxable Value_GSTR'] - df_combined['Taxable Value_Tally']
-                        df_combined['Integrated Tax Variance'] = df_combined['Integrated Tax_GSTR'] - df_combined['Integrated Tax_Tally']
-                        df_combined['Central Tax Variance'] = df_combined['Central Tax_GSTR'] - df_combined['Central Tax_Tally']
-                        df_combined['State/UT Tax Variance'] = df_combined['State/UT tax_GSTR'] - df_combined['State/UT tax_Tally']
-                        df_combined['Cess Variance'] = df_combined['Cess_GSTR'] - df_combined['Cess_Tally']
+                        numeric_cols = ['Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT tax', 'Cess']
+                        for col in numeric_cols:
+                            if f'{col}_GSTR' in df_combined.columns and f'{col}_Tally' in df_combined.columns:
+                                df_combined[f'{col} Variance'] = df_combined[f'{col}_GSTR'] - df_combined[f'{col}_Tally']
                         
-                        st.success("✅ Invoice-wise reconciliation completed!")
+                        # Add supplier information
+                        df_combined['Supplier'] = df_combined.apply(
+                            lambda row: row['Supplier_GSTR'] if row['Supplier_GSTR'] != 0 else row['Supplier_Tally'], axis=1
+                        )
+                        
+                        df_combined['Match_Type'] = df_combined.apply(
+                            lambda row: row['Match_Type_GSTR'] if row['Match_Type_GSTR'] != 0 else row['Match_Type_Tally'], axis=1
+                        )
+                        
+                        st.success("✅ Invoice-wise reconciliation with priority matching completed!")
+                        
+                        # Display summary by match type
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            gstin_invoices = len(df_combined[df_combined['Match_Type'] == 'GSTIN'])
+                            st.metric("🏢 Invoices Matched by GSTIN", gstin_invoices)
+                        with col2:
+                            name_invoices = len(df_combined[df_combined['Match_Type'] == 'NAME'])
+                            st.metric("📝 Invoices Matched by Name", name_invoices)
                         
                         # Display summary by supplier
                         suppliers = df_combined['Supplier'].unique()
+                        suppliers = [s for s in suppliers if s != 0 and s != '']
+                        
                         if len(suppliers) > 0:
                             selected_supplier = st.selectbox("Select Supplier to view details:", suppliers)
                             if selected_supplier:
                                 supplier_data = df_combined[df_combined['Supplier'] == selected_supplier]
                                 st.subheader(f"Invoice Details for: {selected_supplier}")
+                                
+                                # Show match type for this supplier
+                                supplier_match_type = supplier_data['Match_Type'].iloc[0] if len(supplier_data) > 0 else 'Unknown'
+                                st.info(f"🎯 Matching Method: {supplier_match_type}")
+                                
                                 st.dataframe(supplier_data, use_container_width=True)
                         
                         # Show all data in expander
@@ -619,7 +771,7 @@ def main():
                             st.dataframe(df_combined, use_container_width=True)
                         
                         # Full download
-                        st.markdown(create_download_link(df_combined, "Invoice_Reconciliation.xlsx", "Invoice_Recon"), unsafe_allow_html=True)
+                        st.markdown(create_download_link(df_combined, "Priority_Invoice_Reconciliation.xlsx", "Invoice_Recon"), unsafe_allow_html=True)
                         
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
@@ -632,6 +784,11 @@ def main():
         - Excel file with two sheets: **'Tally'** and **'GSTR-2A'**
         - Both sheets should have headers in row 2
         - Required columns: Supplier, Integrated Tax, Central Tax, State/UT tax
+        - Optional: GSTIN of supplier (for priority matching)
+        
+        ### 🎯 Priority Matching Logic:
+        1. **First Priority**: Match by GSTIN of supplier (exact match)
+        2. **Second Priority**: Match by Supplier name (when GSTIN is blank/missing)
         """)
 
 if __name__ == "__main__":
