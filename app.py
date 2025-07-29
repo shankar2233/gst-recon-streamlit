@@ -46,34 +46,34 @@ def fix_tally_columns(df_tally):
     return df_tally
 
 def create_default_excel():
-    """Create a default Excel template with sample data"""
-    # Sample Tally data
+    """Create a default Excel template with your actual sample data"""
+    # Your Tally data (excluding the totals row)
     tally_data = {
-        'GSTIN of supplier': ['27AAPFU0939F1ZV', '23AABCU9603R1ZP', '29AAHCS2781A1ZP', '24AABCU9603R1ZP'],
-        'Supplier': ['ABC Ltd', 'XYZ Corporation', 'PQR Industries', 'LMN Enterprises'],
-        'Invoice number': ['INV001', 'INV002', 'INV003', 'INV004'],
-        'Invoice Date': ['01-04-2024', '02-04-2024', '03-04-2024', '04-04-2024'],
-        'Invoice Value': [11800, 23600, 17700, 14160],
-        'Rate': [18, 18, 18, 18],
-        'Taxable Value': [10000, 20000, 15000, 12000],
-        'Integrated Tax': [1800, 3600, 2700, 2160],
-        'Central Tax': [0, 0, 0, 0],
-        'State/UT tax': [0, 0, 0, 0],
+        'GSTIN of supplier': ['', '', '', ''],
+        'Supplier': ['ABC Private Ltd', 'XYZ Industries', 'ABC Private Ltd', 'GHI Enterprises'],
+        'Invoice number': ['INV-0001', 'INV-0002', 'INV-0003', 'INV-0030'],
+        'Invoice Date': ['2024-04-15', '2024-04-20', '2024-04-15', '2024-09-10'],
+        'Invoice Value': [118000, 177000, 112000, 318000],
+        'Rate': [18, 18, 18, 5],
+        'Taxable Value': [100000, 150000, 100000, 300000],
+        'Integrated Tax': [0, 27000, 0, 0],
+        'Central Tax': [9000, 0, 6000, 9000],
+        'State/UT tax': [9000, 0, 6000, 9000],
         'Cess': [0, 0, 0, 0]
     }
     
-    # Sample GSTR-2A data
+    # Your GSTR-2A data (excluding the totals row)
     gstr_data = {
-        'GSTIN of supplier': ['27AAPFU0939F1ZV', '23AABCU9603R1ZP', '29AAHCS2781A1ZP', '33AABCU9603R1ZP'],
-        'Supplier': ['ABC Limited', 'XYZ Corp', 'PQR Industries Ltd', 'RST Solutions'],
-        'Invoice number': ['INV001', 'INV002', 'INV003', 'INV005'],
-        'Invoice Date': ['01-04-2024', '02-04-2024', '03-04-2024', '05-04-2024'],
-        'Invoice Value': [11800, 23600, 17700, 11800],
-        'Rate': [18, 18, 18, 18],
-        'Taxable Value': [10000, 20000, 15000, 10000],
-        'Integrated Tax': [1800, 3600, 2700, 1800],
-        'Central Tax': [0, 0, 0, 0],
-        'State/UT tax': [0, 0, 0, 0],
+        'GSTIN of supplier': ['', '', '', ''],
+        'Supplier': ['ABC Private Limited', 'DEF Corporation', 'ABC Private Limited', 'GHI Enterprises'],
+        'Invoice number': ['INV-0001', 'INV-0004', 'INV-0005', 'INV-0030'],
+        'Invoice Date': ['2024-04-15', '2024-04-25', '2024-04-15', '2024-09-10'],
+        'Invoice Value': [118000, 89600, 112000, 212000],
+        'Rate': [18, 12, 18, 5],
+        'Taxable Value': [100000, 80000, 100000, 200000],
+        'Integrated Tax': [0, 0, 0, 0],
+        'Central Tax': [9000, 4800, 6000, 6000],
+        'State/UT tax': [9000, 4800, 6000, 6000],
         'Cess': [0, 0, 0, 0]
     }
     
@@ -81,19 +81,30 @@ def create_default_excel():
     df_tally = pd.DataFrame(tally_data)
     df_gstr = pd.DataFrame(gstr_data)
     
-    # Create Excel file in memory
+    # Create Excel file in memory with the exact structure from your file
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        # Add header row for Tally sheet
-        df_tally_with_header = pd.concat([pd.DataFrame([df_tally.columns], columns=df_tally.columns), df_tally], ignore_index=True)
-        df_tally_with_header.to_excel(writer, sheet_name='Tally', index=False, header=False)
+        # For Tally sheet - add totals row first, then headers, then data
+        tally_totals = ['', '', '', '', 650000, '', 650000, 27000, 24000, 24000.1, 0]
+        tally_headers = list(df_tally.columns)
         
-        # Add header row for GSTR-2A sheet
-        df_gstr_with_header = pd.concat([pd.DataFrame([df_gstr.columns], columns=df_gstr.columns), df_gstr], ignore_index=True)
-        df_gstr_with_header.to_excel(writer, sheet_name='GSTR-2A', index=False, header=False)
+        # Create combined data for Tally sheet
+        tally_combined_data = [tally_totals, tally_headers] + df_tally.values.tolist()
+        tally_df_final = pd.DataFrame(tally_combined_data)
+        tally_df_final.to_excel(writer, sheet_name='Tally', index=False, header=False)
+        
+        # For GSTR-2A sheet - add totals row first, then headers, then data
+        gstr_totals = ['', '', '', '', 480000, '', 480000, 0, 25800, 25800.1, 0.1]
+        gstr_headers = list(df_gstr.columns)
+        
+        # Create combined data for GSTR-2A sheet
+        gstr_combined_data = [gstr_totals, gstr_headers] + df_gstr.values.tolist()
+        gstr_df_final = pd.DataFrame(gstr_combined_data)
+        gstr_df_final.to_excel(writer, sheet_name='GSTR-2A', index=False, header=False)
     
     buffer.seek(0)
     return buffer
+
 
 # --- Fuzzy Matching Logic ---
 
