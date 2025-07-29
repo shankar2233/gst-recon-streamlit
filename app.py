@@ -511,6 +511,11 @@ def main():
                                 df_new = df_tally.copy()
                                 df_new[col_supplier] = df_new[col_supplier].apply(lambda x: name_map.get(x, x))
                                 
+                                # Format Invoice Date to DD-MM-YYYY
+                                if 'Invoice Date' in df_new.columns:
+                                    df_new['Invoice Date'] = pd.to_datetime(df_new['Invoice Date'], errors='coerce').dt.strftime('%d-%m-%Y')
+
+                                
                                 st.success("✅ Names replaced successfully!")
                                 st.subheader("📊 Updated Tally Data (Preview)")
                                 st.dataframe(df_new.head(10), use_container_width=True)
