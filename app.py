@@ -216,56 +216,8 @@ def main():
         if st.session_state.matching_completed and st.session_state.match_results:
             st.subheader("📋 Matching Results - Manual Confirmation")
             
-            df_result = pd.DataFrame(st.session_state.match_results, 
-                                   columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
-            
-            # Create interactive confirmation interface
-            st.write("**Review and confirm matches below:**")
-            
-            # Display results in a form for better organization
-            with st.form("confirmation_form"):
-                cols = st.columns([3, 3, 1, 1, 1])
-                cols[0].write("**GSTR-2A Party**")
-                cols[1].write("**Tally Party**") 
-                cols[2].write("**Score**")
-                cols[3].write("**Confirmation**")
-                cols[4].write("**Auto-Set**")
-                
-                for i, (gstr_name, tally_name, score, default_confirm) in enumerate(st.session_state.match_results):
-                    cols = st.columns([3, 3, 1, 1, 1])
-                    
-                    # Display names and score
-                    cols[0].write(str(gstr_name) if gstr_name else "")
-                    cols[1].write(str(tally_name) if tally_name else "")
-                    cols[2].write(f"{score:.0f}%")
-                    
-                    # Dropdown for confirmation
-                    current_value = st.session_state.manual_confirmations.get(i, default_confirm)
-                    confirmation = cols[3].selectbox(
-                        f"Confirm {i}",
-                        options=["Yes", "No"],
-                        index=0 if current_value == "Yes" else 1,
-                        key=f"confirm_{i}",
-                        label_visibility="collapsed"
-                    )
-                    st.session_state.manual_confirmations[i] = confirmation
-                    
-                    # Auto-set button for high scores
-                    if cols[4].button(f"Auto", key=f"auto_{i}", help="Set to Yes if score > 80%"):
-                        if score >= 80 and gstr_name and tally_name:
-                            st.session_state.manual_confirmations[i] = "Yes"
-                        else:
-                            st.session_state.manual_confirmations[i] = "No"
-                        st.rerun()
-                
-                # Form submit button (optional, as changes are already tracked)
-                submitted = st.form_submit_button("Update All Confirmations")
-                if submitted:
-                    st.success("✅ Confirmations updated!")
-            
-            # Bulk operations
-            st.subheader("🔄 Bulk Operations")
-            
+            # Bulk operations (OUTSIDE the form)
+            st.write("**Bulk Operations:**")
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -288,6 +240,40 @@ def main():
                     for i, match in enumerate(st.session_state.match_results):
                         st.session_state.manual_confirmations[i] = match[3]
                     st.rerun()
+            
+            st.write("**Review and confirm matches below:**")
+            
+            # Create interactive confirmation interface with proper form
+            with st.form("confirmation_form"):
+                cols = st.columns([3, 3, 1, 1.5])
+                cols[0].write("**GSTR-2A Party**")
+                cols[1].write("**Tally Party**") 
+                cols[2].write("**Score**")
+                cols[3].write("**Confirmation**")
+                
+                for i, (gstr_name, tally_name, score, default_confirm) in enumerate(st.session_state.match_results):
+                    cols = st.columns([3, 3, 1, 1.5])
+                    
+                    # Display names and score
+                    cols[0].write(str(gstr_name) if gstr_name else "")
+                    cols[1].write(str(tally_name) if tally_name else "")
+                    cols[2].write(f"{score:.0f}%")
+                    
+                    # Dropdown for confirmation
+                    current_value = st.session_state.manual_confirmations.get(i, default_confirm)
+                    confirmation = cols[3].selectbox(
+                        f"Confirm {i}",
+                        options=["Yes", "No"],
+                        index=0 if current_value == "Yes" else 1,
+                        key=f"confirm_{i}",
+                        label_visibility="collapsed"
+                    )
+                    st.session_state.manual_confirmations[i] = confirmation
+                
+                # REQUIRED: Form submit button
+                submitted = st.form_submit_button("🔄 Update All Confirmations", use_container_width=True)
+                if submitted:
+                    st.success("✅ Confirmations updated!")
             
             # Excel Download/Upload functionality
             st.subheader("📥📤 Excel Download/Upload for Bulk Editing")
