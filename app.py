@@ -15,13 +15,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize session state
-if 'final_matches' not in st.session_state:
-    st.session_state.final_matches = []
-if 'uploaded_file' not in st.session_state:
-    st.session_state.uploaded_file = None
-if 'processed_file' not in st.session_state:
-    st.session_state.processed_file = None
+# Initialize session state with better structure
+def init_session_state():
+    if 'final_matches' not in st.session_state:
+        st.session_state.final_matches = []
+    if 'uploaded_file_content' not in st.session_state:
+        st.session_state.uploaded_file_content = None
+    if 'uploaded_file_name' not in st.session_state:
+        st.session_state.uploaded_file_name = None
+    if 'df_tally' not in st.session_state:
+        st.session_state.df_tally = None
+    if 'df_gstr' not in st.session_state:
+        st.session_state.df_gstr = None
+    if 'matching_completed' not in st.session_state:
+        st.session_state.matching_completed = False
+
+init_session_state()
 
 # --- Utility Functions ---
 def get_column(df, colname):
@@ -40,7 +49,7 @@ def create_download_link(df, filename, sheet_name="Sheet1"):
         df.to_excel(writer, sheet_name=sheet_name, index=False)
     output.seek(0)
     b64 = base64.b64encode(output.read()).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">Download {filename}</a>'
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">📥 Download {filename}</a>'
     return href
 
 def create_multi_sheet_download(dfs_dict, filename):
@@ -51,8 +60,25 @@ def create_multi_sheet_download(dfs_dict, filename):
             df.to_excel(writer, sheet_name=sheet_name, index=False)
     output.seek(0)
     b64 = base64.b64encode(output.read()).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">Download {filename}</a>'
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">📥 Download {filename}</a>'
     return href
+
+def load_excel_data(uploaded_file):
+    """Load and cache Excel data"""
+    try:
+        df_tally = pd.read_excel(uploaded_file, sheet_name='Tally', header=1)
+        df_gstr = pd.read_excel(uploaded_file, sheet_name='GSTR-2A', header=1)
+        
+        # Store in session state
+        st.session_state.df_tally = df_tally
+        st.session_state.df_gstr = df_gstr
+        st.session_state.uploaded_file_content = uploaded_file.getvalue()
+        st.session_state.uploaded_file_name = uploaded_file.name
+        
+        return df_tally, df_gstr
+    except Exception as e:
+        st.error(f"❌ Error reading Excel file: {str(e)}")
+        return None, None
 
 # --- Fuzzy Matching Logic ---
 def two_way_match(tally_list, gstr_list, threshold):
@@ -116,35 +142,49 @@ def main():
     st.title("🏦 GST Reconciliation Tool")
     st.markdown("**Fuzzy Match GSTR-2A/2B vs Books & Run GST Reconciliation**")
     
-    # Sidebar for navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox("Choose a function:", [
-        "📤 Upload File & Fuzzy Matching",
-        "🔄 Name Replacement",
-        "📊 GST Reconciliation",
-        "🧾 Invoice-wise Reconciliation"
-    ])
+    # File Upload Section (Always visible)
+    st.header("📤 Upload Excel File")
+    uploaded_file = st.file_uploader(
+        "Choose Excel file with 'Tally' and 'GSTR-2A' sheets",
+        type=['xlsx', 'xls'],
+        key="file_uploader"
+    )
     
-    if page == "📤 Upload File & Fuzzy Matching":
-        st.header("📤 Upload Excel File & Run Fuzzy Matching")
+    # Process uploaded file
+    if uploaded_file is not None:
+        if (st.session_state.uploaded_file_name != uploaded_file.name or 
+            st.session_state.uploaded_file_content != uploaded_file.getvalue()):
+            
+            with st.spinner("Loading Excel file..."):
+                df_tally, df_gstr = load_excel_data(uploaded_file)
+            
+            if df_tally is not None and df_gstr is not None:
+                st.success(f"✅ File loaded successfully: {uploaded_file.name}")
+                st.info(f"📊 Tally Sheet: {len(df_tally)} rows | GSTR-2A Sheet: {len(df_gstr)} rows")
+        else:
+            st.success(f"✅ File already loaded: {uploaded_file.name}")
+    
+    # Show navigation only if file is uploaded
+    if st.session_state.uploaded_file_content is not None:
+        st.sidebar.title("🧭 Navigation")
+        page = st.sidebar.selectbox("Choose a function:", [
+            "🔍 Fuzzy Matching",
+            "🔄 Name Replacement", 
+            "📊 GST Reconciliation",
+            "🧾 Invoice-wise Reconciliation"
+        ])
         
-        uploaded_file = st.file_uploader(
-            "Choose Excel file with 'Tally' and 'GSTR-2A' sheets",
-            type=['xlsx', 'xls']
-        )
-        
-        if uploaded_file is not None:
-            st.session_state.uploaded_file = uploaded_file
-            st.success(f"✅ File uploaded: {uploaded_file.name}")
+        # Main content based on selection
+        if page == "🔍 Fuzzy Matching":
+            st.header("🔍 Fuzzy Matching")
             
             # Threshold setting
             threshold = st.slider("Match Threshold", min_value=50, max_value=100, value=80, step=5)
             
             if st.button("🚀 Start Fuzzy Matching", type="primary"):
                 try:
-                    # Read Excel sheets
-                    df_tally = pd.read_excel(uploaded_file, sheet_name='Tally', header=1)
-                    df_gstr = pd.read_excel(uploaded_file, sheet_name='GSTR-2A', header=1)
+                    df_tally = st.session_state.df_tally
+                    df_gstr = st.session_state.df_gstr
                     
                     col_supplier_tally = get_column(df_tally, 'Supplier')
                     col_supplier_gstr = get_column(df_gstr, 'Supplier')
@@ -152,19 +192,20 @@ def main():
                     tally_parties = get_raw_unique_names(df_tally[col_supplier_tally])
                     gstr_parties = get_raw_unique_names(df_gstr[col_supplier_gstr])
                     
-                    st.info(f"Found {len(tally_parties)} unique suppliers in Tally and {len(gstr_parties)} unique suppliers in GSTR-2A")
+                    st.info(f"📈 Found {len(tally_parties)} unique suppliers in Tally and {len(gstr_parties)} unique suppliers in GSTR-2A")
                     
                     # Run matching
                     with st.spinner("Running fuzzy matching..."):
                         final_matches = two_way_match(tally_parties, gstr_parties, threshold)
                         st.session_state.final_matches = final_matches
+                        st.session_state.matching_completed = True
                     
                     # Display results
                     df_result = pd.DataFrame(final_matches, columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
                     df_result = df_result.sort_values(by=['Manual Confirmation', 'GSTR-2A Party', 'Tally Party'], ascending=[False, False, False])
                     
                     st.success("✅ Matching completed!")
-                    st.subheader("Match Results")
+                    st.subheader("📋 Match Results")
                     st.dataframe(df_result, use_container_width=True)
                     
                     # Download link
@@ -172,234 +213,270 @@ def main():
                     
                     # Summary statistics
                     matched_count = len(df_result[df_result['Manual Confirmation'] == 'Yes'])
-                    st.metric("Successful Matches", matched_count, f"out of {len(df_result)} total")
+                    unmatched_count = len(df_result[df_result['Manual Confirmation'] == 'No'])
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("✅ Successful Matches", matched_count)
+                    with col2:
+                        st.metric("❌ Unmatched", unmatched_count)
+                    with col3:
+                        st.metric("📊 Total Records", len(df_result))
                     
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
-    
-    elif page == "🔄 Name Replacement":
-        st.header("🔄 Replace Matched Names")
+            
+            # Show existing results if available
+            if st.session_state.matching_completed and st.session_state.final_matches:
+                st.subheader("📋 Previous Match Results")
+                df_result = pd.DataFrame(st.session_state.final_matches, columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
+                st.dataframe(df_result, use_container_width=True)
         
-        if not st.session_state.final_matches:
-            st.warning("⚠️ Please run fuzzy matching first!")
-            return
-        
-        if not st.session_state.uploaded_file:
-            st.warning("⚠️ Please upload a file first!")
-            return
-        
-        if st.button("🔁 Replace Names in Tally Sheet", type="primary"):
-            try:
-                df_tally = pd.read_excel(st.session_state.uploaded_file, sheet_name='Tally', header=1)
-                col_supplier = get_column(df_tally, 'Supplier')
+        elif page == "🔄 Name Replacement":
+            st.header("🔄 Name Replacement")
+            
+            if not st.session_state.matching_completed or not st.session_state.final_matches:
+                st.warning("⚠️ Please run fuzzy matching first!")
+                if st.button("🔍 Go to Fuzzy Matching"):
+                    st.rerun()
+            else:
+                st.info("✅ Match data found! Ready to replace names.")
                 
-                # Create name mapping
-                name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches 
-                           if gstr and tally and confirm == "Yes"}
+                # Show match summary
+                matched_count = len([m for m in st.session_state.final_matches if m[1] != '' and m[3] == 'Yes'])
+                st.metric("Names to be replaced", matched_count)
                 
-                df_new = df_tally.copy()
-                df_new[col_supplier] = df_new[col_supplier].apply(lambda x: name_map.get(x, x))
-                
-                st.success("✅ Names replaced successfully!")
-                st.subheader("Updated Tally Data (Preview)")
-                st.dataframe(df_new.head(10), use_container_width=True)
-                
-                # Download link
-                st.markdown(create_download_link(df_new, "Tally_Replaced.xlsx", "Tally_Replaced"), unsafe_allow_html=True)
-                
-                st.info(f"Replaced {len(name_map)} supplier names in the Tally sheet.")
-                
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-    
-    elif page == "📊 GST Reconciliation":
-        st.header("📊 GST Reconciliation")
-        
-        if not st.session_state.uploaded_file:
-            st.warning("⚠️ Please upload a file first!")
-            return
-        
-        if st.button("📊 Run GST Reconciliation", type="primary"):
-            try:
-                with st.spinner("Processing reconciliation..."):
-                    df_tally = pd.read_excel(st.session_state.uploaded_file, sheet_name='Tally', header=1)
-                    df_gstr = pd.read_excel(st.session_state.uploaded_file, sheet_name='GSTR-2A', header=1)
-                    
-                    # Add Cess column if missing
-                    for df in [df_tally, df_gstr]:
-                        if 'Cess' not in df.columns:
-                            df['Cess'] = 0
-                    
-                    col_name = get_column(df_tally, 'Supplier')
-                    col_itax = get_column(df_tally, 'Integrated Tax')
-                    col_ctax = get_column(df_tally, 'Central Tax')
-                    col_stax = get_column(df_tally, 'State/UT tax')
-                    
-                    # Try GSTIN grouping, fallback to name
+                if st.button("🔁 Replace Names in Tally Sheet", type="primary"):
                     try:
-                        col_gstin_tally = get_column(df_tally, 'GSTIN of supplier')
-                        col_gstin_gstr = get_column(df_gstr, 'GSTIN of supplier')
-                        group_cols = [col_gstin_tally]
-                    except KeyError:
-                        group_cols = [col_name]
+                        df_tally = st.session_state.df_tally.copy()
+                        col_supplier = get_column(df_tally, 'Supplier')
+                        
+                        # Create name mapping
+                        name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches 
+                                   if gstr and tally and confirm == "Yes"}
+                        
+                        df_new = df_tally.copy()
+                        df_new[col_supplier] = df_new[col_supplier].apply(lambda x: name_map.get(x, x))
+                        
+                        st.success("✅ Names replaced successfully!")
+                        st.subheader("📊 Updated Tally Data (Preview)")
+                        st.dataframe(df_new.head(10), use_container_width=True)
+                        
+                        # Download link
+                        st.markdown(create_download_link(df_new, "Tally_Replaced.xlsx", "Tally_Replaced"), unsafe_allow_html=True)
+                        
+                        st.info(f"🔄 Replaced {len(name_map)} supplier names in the Tally sheet.")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+        
+        elif page == "📊 GST Reconciliation":
+            st.header("📊 GST Reconciliation")
+            
+            if st.button("📊 Run GST Reconciliation", type="primary"):
+                try:
+                    with st.spinner("Processing reconciliation..."):
+                        df_tally = st.session_state.df_tally.copy()
+                        df_gstr = st.session_state.df_gstr.copy()
+                        
+                        # Add Cess column if missing
+                        for df in [df_tally, df_gstr]:
+                            if 'Cess' not in df.columns:
+                                df['Cess'] = 0
+                        
+                        col_name = get_column(df_tally, 'Supplier')
+                        col_itax = get_column(df_tally, 'Integrated Tax')
+                        col_ctax = get_column(df_tally, 'Central Tax')
+                        col_stax = get_column(df_tally, 'State/UT tax')
+                        
+                        # Try GSTIN grouping, fallback to name
+                        try:
+                            col_gstin_tally = get_column(df_tally, 'GSTIN of supplier')
+                            col_gstin_gstr = get_column(df_gstr, 'GSTIN of supplier')
+                            group_cols = [col_gstin_tally]
+                        except KeyError:
+                            group_cols = [col_name]
+                        
+                        # Fill NaN values
+                        for df in [df_tally, df_gstr]:
+                            for col in group_cols:
+                                df[col] = df[col].fillna('UNKNOWN')
+                        
+                        # Group and aggregate
+                        df_tally_grp = df_tally.groupby(group_cols).sum(numeric_only=True).reset_index()
+                        df_gstr_grp = df_gstr.groupby(group_cols).sum(numeric_only=True).reset_index()
+                        
+                        # Inner join for variance calculation
+                        df_combined = pd.merge(df_gstr_grp, df_tally_grp, on=group_cols, how='inner', suffixes=('_GSTR', '_Tally'))
+                        df_combined['Integrated Tax Variance'] = df_combined[col_itax + '_GSTR'] - df_combined[col_itax + '_Tally']
+                        df_combined['Central Tax Variance'] = df_combined[col_ctax + '_GSTR'] - df_combined[col_ctax + '_Tally']
+                        df_combined['State/UT Tax Variance'] = df_combined[col_stax + '_GSTR'] - df_combined[col_stax + '_Tally']
+                        
+                        # Outer join for missing records
+                        df_combined_outer = pd.merge(df_gstr_grp, df_tally_grp, on=group_cols, how='outer', suffixes=('_GSTR', '_Tally'))
+                        not_in_tally = df_combined_outer[df_combined_outer[col_itax + '_Tally'].isna()]
+                        not_in_gstr = df_combined_outer[df_combined_outer[col_itax + '_GSTR'].isna()]
+                        
+                        # Summary
+                        df_summary = pd.DataFrame({
+                            'Particulars': ['GST Input as per GSTR-2A Sheet', 'GST Input as per Tally', 'Variance (1-2)'],
+                            'Integrated Tax': [
+                                df_gstr_grp[col_itax].sum(),
+                                df_tally_grp[col_itax].sum(),
+                                df_gstr_grp[col_itax].sum() - df_tally_grp[col_itax].sum()
+                            ],
+                            'Central Tax': [
+                                df_gstr_grp[col_ctax].sum(),
+                                df_tally_grp[col_ctax].sum(),
+                                df_gstr_grp[col_ctax].sum() - df_tally_grp[col_ctax].sum()
+                            ],
+                            'State/UT Tax': [
+                                df_gstr_grp[col_stax].sum(),
+                                df_tally_grp[col_stax].sum(),
+                                df_gstr_grp[col_stax].sum() - df_tally_grp[col_stax].sum()
+                            ]
+                        })
+                        
+                        # Reconciliation details
+                        df_recon = pd.DataFrame({
+                            'Particulars': [
+                                'Not in Tally but found in GSTR-2A',
+                                'Not in GSTR-2A but found in Tally',
+                                'Difference in Input between Tally and GSTR-2A'
+                            ],
+                            'Integrated Tax': [
+                                not_in_tally[col_itax + '_GSTR'].sum(),
+                                not_in_gstr[col_itax + '_Tally'].sum(),
+                                df_combined['Integrated Tax Variance'].sum()
+                            ],
+                            'Central Tax': [
+                                not_in_tally[col_ctax + '_GSTR'].sum(),
+                                not_in_gstr[col_ctax + '_Tally'].sum(),
+                                df_combined['Central Tax Variance'].sum()
+                            ],
+                            'State/UT Tax': [
+                                not_in_tally[col_stax + '_GSTR'].sum(),
+                                not_in_gstr[col_stax + '_Tally'].sum(),
+                                df_combined['State/UT Tax Variance'].sum()
+                            ]
+                        })
                     
-                    # Fill NaN values
-                    for df in [df_tally, df_gstr]:
-                        for col in group_cols:
-                            df[col] = df[col].fillna('UNKNOWN')
+                    st.success("✅ Reconciliation completed!")
                     
-                    # Group and aggregate
-                    df_tally_grp = df_tally.groupby(group_cols).sum(numeric_only=True).reset_index()
-                    df_gstr_grp = df_gstr.groupby(group_cols).sum(numeric_only=True).reset_index()
+                    # Display results in tabs
+                    tab1, tab2, tab3 = st.tabs(["📊 Summary", "🔍 Details", "📥 Downloads"])
                     
-                    # Inner join for variance calculation
-                    df_combined = pd.merge(df_gstr_grp, df_tally_grp, on=group_cols, how='inner', suffixes=('_GSTR', '_Tally'))
-                    df_combined['Integrated Tax Variance'] = df_combined[col_itax + '_GSTR'] - df_combined[col_itax + '_Tally']
-                    df_combined['Central Tax Variance'] = df_combined[col_ctax + '_GSTR'] - df_combined[col_ctax + '_Tally']
-                    df_combined['State/UT Tax Variance'] = df_combined[col_stax + '_GSTR'] - df_combined[col_stax + '_Tally']
+                    with tab1:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.subheader("GST Input Summary")
+                            st.dataframe(df_summary, use_container_width=True)
+                        with col2:
+                            st.subheader("Reconciliation Analysis")
+                            st.dataframe(df_recon, use_container_width=True)
                     
-                    # Outer join for missing records
-                    df_combined_outer = pd.merge(df_gstr_grp, df_tally_grp, on=group_cols, how='outer', suffixes=('_GSTR', '_Tally'))
-                    not_in_tally = df_combined_outer[df_combined_outer[col_itax + '_Tally'].isna()]
-                    not_in_gstr = df_combined_outer[df_combined_outer[col_itax + '_GSTR'].isna()]
+                    with tab2:
+                        st.subheader("Detailed Comparison")
+                        st.dataframe(df_combined, use_container_width=True)
+                        
+                        if len(not_in_tally) > 0:
+                            st.subheader("Not in Tally but in GSTR-2A")
+                            st.dataframe(not_in_tally, use_container_width=True)
+                        
+                        if len(not_in_gstr) > 0:
+                            st.subheader("Not in GSTR-2A but in Tally")
+                            st.dataframe(not_in_gstr, use_container_width=True)
                     
-                    # Summary
-                    df_summary = pd.DataFrame({
-                        'Particulars': ['GST Input as per GSTR-2A Sheet', 'GST Input as per Tally', 'Variance (1-2)'],
-                        'Integrated Tax': [
-                            df_gstr_grp[col_itax].sum(),
-                            df_tally_grp[col_itax].sum(),
-                            df_gstr_grp[col_itax].sum() - df_tally_grp[col_itax].sum()
-                        ],
-                        'Central Tax': [
-                            df_gstr_grp[col_ctax].sum(),
-                            df_tally_grp[col_ctax].sum(),
-                            df_gstr_grp[col_ctax].sum() - df_tally_grp[col_ctax].sum()
-                        ],
-                        'State/UT Tax': [
-                            df_gstr_grp[col_stax].sum(),
-                            df_tally_grp[col_stax].sum(),
-                            df_gstr_grp[col_stax].sum() - df_tally_grp[col_stax].sum()
-                        ]
-                    })
+                    with tab3:
+                        # Create download with multiple sheets
+                        sheets_dict = {
+                            'GST_Input_Summary': df_summary,
+                            'Reconciliation': df_recon,
+                            'T_vs_G-2A': df_combined,
+                            'N_I_T_B_I_G': not_in_tally,
+                            'N_I_G_B_I_T': not_in_gstr
+                        }
+                        
+                        st.markdown(create_multi_sheet_download(sheets_dict, "GST_Reconciliation_Report.xlsx"), unsafe_allow_html=True)
+                        
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.write("Error details:", str(e))
+        
+        elif page == "🧾 Invoice-wise Reconciliation":
+            st.header("🧾 Invoice-wise Reconciliation")
+            
+            if st.button("🧾 Run Invoice-wise Reconciliation", type="primary"):
+                try:
+                    with st.spinner("Processing invoice-wise reconciliation..."):
+                        df_tally = st.session_state.df_tally.copy()
+                        df_gstr = st.session_state.df_gstr.copy()
+                        
+                        # Clean and prepare data
+                        for df in [df_tally, df_gstr]:
+                            df.columns = df.columns.str.strip()
+                            if 'Cess' not in df.columns:
+                                df['Cess'] = 0
+                            df['GSTIN of supplier'] = df['GSTIN of supplier'].fillna('No GSTIN')
+                        
+                        group_columns = ['GSTIN of supplier', 'Supplier', 'Invoice number']
+                        
+                        def consolidate(df):
+                            return df.groupby(group_columns).agg({
+                                'Taxable Value': 'sum',
+                                'Integrated Tax': 'sum',
+                                'Central Tax': 'sum',
+                                'State/UT tax': 'sum',
+                                'Cess': 'sum'
+                            }).reset_index()
+                        
+                        tally_grouped = consolidate(df_tally)
+                        gstr_grouped = consolidate(df_gstr)
+                        
+                        df_combined = pd.merge(
+                            gstr_grouped, tally_grouped, 
+                            on=group_columns, how='outer', 
+                            suffixes=('_GSTR', '_Tally')
+                        ).fillna(0)
+                        
+                        # Calculate variances
+                        df_combined['Taxable Value Variance'] = df_combined['Taxable Value_GSTR'] - df_combined['Taxable Value_Tally']
+                        df_combined['Integrated Tax Variance'] = df_combined['Integrated Tax_GSTR'] - df_combined['Integrated Tax_Tally']
+                        df_combined['Central Tax Variance'] = df_combined['Central Tax_GSTR'] - df_combined['Central Tax_Tally']
+                        df_combined['State/UT Tax Variance'] = df_combined['State/UT tax_GSTR'] - df_combined['State/UT tax_Tally']
+                        df_combined['Cess Variance'] = df_combined['Cess_GSTR'] - df_combined['Cess_Tally']
                     
-                    # Reconciliation details
-                    df_recon = pd.DataFrame({
-                        'Particulars': [
-                            'Not in Tally but found in GSTR-2A',
-                            'Not in GSTR-2A but found in Tally',
-                            'Difference in Input between Tally and GSTR-2A'
-                        ],
-                        'Integrated Tax': [
-                            not_in_tally[col_itax + '_GSTR'].sum(),
-                            not_in_gstr[col_itax + '_Tally'].sum(),
-                            df_combined['Integrated Tax Variance'].sum()
-                        ],
-                        'Central Tax': [
-                            not_in_tally[col_ctax + '_GSTR'].sum(),
-                            not_in_gstr[col_ctax + '_Tally'].sum(),
-                            df_combined['Central Tax Variance'].sum()
-                        ],
-                        'State/UT Tax': [
-                            not_in_tally[col_stax + '_GSTR'].sum(),
-                            not_in_gstr[col_stax + '_Tally'].sum(),
-                            df_combined['State/UT Tax Variance'].sum()
-                        ]
-                    })
-                
-                st.success("✅ Reconciliation completed!")
-                
-                # Display results
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.subheader("GST Input Summary")
-                    st.dataframe(df_summary, use_container_width=True)
-                
-                with col2:
-                    st.subheader("Reconciliation Details")
-                    st.dataframe(df_recon, use_container_width=True)
-                
-                st.subheader("Detailed Comparison")
-                st.dataframe(df_combined, use_container_width=True)
-                
-                # Create download with multiple sheets
-                sheets_dict = {
-                    'GST_Input_Summary': df_summary,
-                    'Reconciliation': df_recon,
-                    'T_vs_G-2A': df_combined,
-                    'N_I_T_B_I_G': not_in_tally,
-                    'N_I_G_B_I_T': not_in_gstr
-                }
-                
-                st.markdown(create_multi_sheet_download(sheets_dict, "GST_Reconciliation_Report.xlsx"), unsafe_allow_html=True)
-                
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                    st.success("✅ Invoice-wise reconciliation completed!")
+                    
+                    # Display summary by supplier
+                    suppliers = df_combined['Supplier'].unique()
+                    if len(suppliers) > 0:
+                        selected_supplier = st.selectbox("Select Supplier to view details:", suppliers)
+                        
+                        if selected_supplier:
+                            supplier_data = df_combined[df_combined['Supplier'] == selected_supplier]
+                            st.subheader(f"Invoice Details for: {selected_supplier}")
+                            st.dataframe(supplier_data, use_container_width=True)
+                    
+                    # Show all data in expander
+                    with st.expander("📊 View All Invoice Reconciliation Data"):
+                        st.dataframe(df_combined, use_container_width=True)
+                    
+                    # Full download
+                    st.markdown(create_download_link(df_combined, "Invoice_Reconciliation.xlsx", "Invoice_Recon"), unsafe_allow_html=True)
+                    
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.write("Error details:", str(e))
     
-    elif page == "🧾 Invoice-wise Reconciliation":
-        st.header("🧾 Invoice-wise Reconciliation")
-        
-        if not st.session_state.uploaded_file:
-            st.warning("⚠️ Please upload a file first!")
-            return
-        
-        if st.button("🧾 Run Invoice-wise Reconciliation", type="primary"):
-            try:
-                with st.spinner("Processing invoice-wise reconciliation..."):
-                    df_tally = pd.read_excel(st.session_state.uploaded_file, sheet_name='Tally', header=1)
-                    df_gstr = pd.read_excel(st.session_state.uploaded_file, sheet_name='GSTR-2A', header=1)
-                    
-                    # Clean and prepare data
-                    for df in [df_tally, df_gstr]:
-                        df.columns = df.columns.str.strip()
-                        if 'Cess' not in df.columns:
-                            df['Cess'] = 0
-                        df['GSTIN of supplier'] = df['GSTIN of supplier'].fillna('No GSTIN')
-                    
-                    group_columns = ['GSTIN of supplier', 'Supplier', 'Invoice number']
-                    
-                    def consolidate(df):
-                        return df.groupby(group_columns).agg({
-                            'Taxable Value': 'sum',
-                            'Integrated Tax': 'sum',
-                            'Central Tax': 'sum',
-                            'State/UT tax': 'sum',
-                            'Cess': 'sum'
-                        }).reset_index()
-                    
-                    tally_grouped = consolidate(df_tally)
-                    gstr_grouped = consolidate(df_gstr)
-                    
-                    df_combined = pd.merge(
-                        gstr_grouped, tally_grouped, 
-                        on=group_columns, how='outer', 
-                        suffixes=('_GSTR', '_Tally')
-                    ).fillna(0)
-                    
-                    # Calculate variances
-                    df_combined['Taxable Value Variance'] = df_combined['Taxable Value_GSTR'] - df_combined['Taxable Value_Tally']
-                    df_combined['Integrated Tax Variance'] = df_combined['Integrated Tax_GSTR'] - df_combined['Integrated Tax_Tally']
-                    df_combined['Central Tax Variance'] = df_combined['Central Tax_GSTR'] - df_combined['Central Tax_Tally']
-                    df_combined['State/UT Tax Variance'] = df_combined['State/UT tax_GSTR'] - df_combined['State/UT tax_Tally']
-                    df_combined['Cess Variance'] = df_combined['Cess_GSTR'] - df_combined['Cess_Tally']
-                
-                st.success("✅ Invoice-wise reconciliation completed!")
-                
-                # Display summary by supplier
-                suppliers = df_combined['Supplier'].unique()
-                selected_supplier = st.selectbox("Select Supplier to view details:", suppliers)
-                
-                if selected_supplier:
-                    supplier_data = df_combined[df_combined['Supplier'] == selected_supplier]
-                    st.subheader(f"Invoice Details for: {selected_supplier}")
-                    st.dataframe(supplier_data, use_container_width=True)
-                
-                # Full download
-                st.markdown(create_download_link(df_combined, "Invoice_Reconciliation.xlsx", "Invoice_Recon"), unsafe_allow_html=True)
-                
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+    else:
+        st.info("👆 Please upload an Excel file to get started!")
+        st.markdown("""
+        ### 📋 Requirements:
+        - Excel file with two sheets: **'Tally'** and **'GSTR-2A'**
+        - Both sheets should have headers in row 2
+        - Required columns: Supplier, Integrated Tax, Central Tax, State/UT tax
+        """)
 
 if __name__ == "__main__":
     main()
