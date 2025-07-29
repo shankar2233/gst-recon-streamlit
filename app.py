@@ -43,7 +43,109 @@ def fix_tally_columns(df_tally):
     
     return df_tally
 
-# --- Fuzzy Matching Logic ---
+def create_default_format():
+    """Create default Excel format for users"""
+    # Sample data for Tally sheet
+    tally_data = {
+        'GSTIN of supplier': ['27AABCU9603R1ZX', '27AABCU9603R1ZY', ''],
+        'Supplier': ['ABC Private Ltd', 'XYZ Industries', 'GHI Enterprises'],
+        'Invoice number': ['INV-0001', 'INV-0002', 'INV-0003'],
+        'Invoice Date': ['15-04-2024', '20-04-2024', '25-04-2024'],
+        'Invoice Value': [118000, 177000, 112000],
+        'Rate': [18, 18, 12],
+        'Taxable Value': [100000, 150000, 100000],
+        'Integrated Tax': [0, 27000, 0],
+        'Central Tax': [9000, 0, 6000],
+        'State/UT tax': [9000, 0, 6000],
+        'Cess': [0, 0, 0]
+    }
+    
+    # Sample data for GSTR-2A sheet
+    gstr_data = {
+        'GSTIN of supplier': ['27AABCU9603R1ZX', '27AABCU9603R1ZZ', ''],
+        'Supplier': ['ABC Private Limited', 'DEF Corporation', 'GHI Enterprises'],
+        'Invoice number': ['INV-0001', 'INV-0004', 'INV-0003'],
+        'Invoice Date': ['15-04-2024', '25-04-2024', '25-04-2024'],
+        'Invoice Value': [118000, 89600, 112000],
+        'Rate': [18, 12, 12],
+        'Taxable Value': [100000, 80000, 100000],
+        'Integrated Tax': [0, 0, 0],
+        'Central Tax': [9000, 4800, 6000],
+        'State/UT tax': [9000, 4800, 6000],
+        'Cess': [0, 0, 0]
+    }
+    
+    df_tally = pd.DataFrame(tally_data)
+    df_gstr = pd.DataFrame(gstr_data)
+    
+    # Create Excel in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Add empty row for header space
+        empty_row = pd.DataFrame([[''] * len(df_tally.columns)], columns=df_tally.columns)
+        empty_row.to_excel(writer, sheet_name='Tally', index=False, header=False)
+        df_tally.to_excel(writer, sheet_name='Tally', index=False, startrow=1)
+        
+        empty_row_gstr = pd.DataFrame([[''] * len(df_gstr.columns)], columns=df_gstr.columns)
+        empty_row_gstr.to_excel(writer, sheet_name='GSTR-2A', index=False, header=False)
+        df_gstr.to_excel(writer, sheet_name='GSTR-2A', index=False, startrow=1)
+    
+    output.seek(0)
+    return output.getvalue()
+
+def show_help_instructions():
+    """Show help instructions with emojis"""
+    st.markdown("""
+    ## 🔄 GST Reconciliation Help Guide
+    
+    ### 📋 Step-by-Step Process:
+    
+    **1. 📂 File Preparation:**
+    - 📥 Download the default format template
+    - 📝 Fill your data in 'Tally' and 'GSTR-2A' sheets
+    - 📤 Upload the completed Excel file
+    
+    **2. 🚀 Fuzzy Matching:**
+    - 🎯 Set match threshold (80% recommended)
+    - ▶️ Click "Start Matching" to find similar supplier names
+    - ✅ Review matches and confirm with Yes/No dropdowns
+    - 📊 Use bulk operations for quick confirmations
+    - 📥 Download/upload for offline bulk editing
+    - ▶️ Click "Continue" to save confirmations
+    
+    **3. 🔁 Name Replacement:**
+    - 🔄 Replaces Tally supplier names with GSTR names
+    - ✅ Only processes "Yes" confirmed matches
+    - 📋 Creates 'Tally_Replaced' sheet
+    
+    **4. 📊 GST Reconciliation:**
+    - 🧮 Compares GST amounts between books and GSTR-2A
+    - 📈 Shows variances and summaries
+    - 📊 Creates detailed comparison sheets
+    
+    **5. 🧾 Invoice Reconciliation:**
+    - 📋 Invoice-wise detailed comparison
+    - 🔍 Identifies missing invoices
+    - 💰 Shows amount differences
+    
+    **6. 📥 Final Download:**
+    - 📦 Download complete Excel with all results
+    - 📂 Contains all analysis sheets in one file
+    
+    ### 💡 Tips:
+    - 🎯 Higher threshold = stricter matching
+    - ✅ Review fuzzy matches carefully
+    - 📊 Check variance reports for discrepancies
+    - 🔍 Use invoice reconciliation for detailed analysis
+    
+    ### ⚠️ Common Issues:
+    - 📋 Ensure correct sheet names: 'Tally' and 'GSTR-2A'
+    - 📝 Keep column headers as per template
+    - 📅 Date format: DD-MM-YYYY or DD/MM/YYYY
+    - 🔢 Numeric columns should contain only numbers
+    """)
+
+# --- Fuzzy Matching Logic (same as before) ---
 def two_way_match(tally_list, gstr_list, threshold):
     match_map, used_tally, used_gstr = {}, set(), set()
     tally_upper = {name.upper(): name for name in tally_list}
@@ -126,13 +228,39 @@ def main():
         st.session_state.matching_completed = False
     if 'manual_confirmations' not in st.session_state:
         st.session_state.manual_confirmations = {}
+    if 'all_processes_completed' not in st.session_state:
+        st.session_state.all_processes_completed = False
     
-    # File upload
-    st.header("📂 Upload Excel File")
-    uploaded_file = st.file_uploader(
-        "Choose an Excel file with 'Tally' and 'GSTR-2A' sheets",
-        type=['xlsx', 'xls']
-    )
+    # Top section with file upload and help
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        st.header("📂 Upload Excel File")
+        uploaded_file = st.file_uploader(
+            "Choose an Excel file with 'Tally' and 'GSTR-2A' sheets",
+            type=['xlsx', 'xls']
+        )
+    
+    with col2:
+        st.header("📥 Default Format")
+        st.download_button(
+            label="📥 Download Template",
+            data=create_default_format(),
+            file_name=f"GST_Reconciliation_Template_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="Download this template to see the required format",
+            use_container_width=True
+        )
+        st.info("📋 Download this template to see the required Excel format with sample data")
+    
+    with col3:
+        st.header("❓ Help")
+        if st.button("❓ Show Instructions", use_container_width=True):
+            st.session_state.show_help = not st.session_state.get('show_help', False)
+        
+        if st.session_state.get('show_help', False):
+            with st.expander("📖 Help Guide", expanded=True):
+                show_help_instructions()
     
     if uploaded_file is not None:
         st.session_state.uploaded_file = uploaded_file
@@ -391,20 +519,10 @@ def main():
                     # Display final results
                     st.subheader("📋 Final Matching Results")
                     st.dataframe(df_result, use_container_width=True)
-                    
-                    # Download button for final results
-                    with open(st.session_state.temp_file_path, 'rb') as file:
-                        st.download_button(
-                            label="📥 Download Excel with Final Matches",
-                            data=file.read(),
-                            file_name=f"final_matches_{uploaded_file.name}",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
                 
                 except Exception as e:
                     st.error(f"❌ Error saving confirmations: {e}")
     
-    # Rest of the tabs remain the same...
     with tab2:
         st.header("🔁 Name Replacement")
         st.info("💡 First complete fuzzy matching, then use this to replace Tally names with GSTR names")
@@ -457,20 +575,10 @@ def main():
                     # Show preview
                     st.subheader("📋 Preview of Replaced Data")
                     st.dataframe(df_new.head(), use_container_width=True)
-                    
-                    # Download button
-                    with open(st.session_state.temp_file_path, 'rb') as file:
-                        st.download_button(
-                            label="📥 Download Excel with Replacements",
-                            data=file.read(),
-                            file_name=f"replaced_{uploaded_file.name}",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
             
             except Exception as e:
                 st.error(f"❌ Error during replacement: {e}")
     
-    # Tab 3 and Tab 4 remain the same as in your original code...
     with tab3:
         st.header("📊 GST Reconciliation")
         
@@ -614,15 +722,6 @@ def main():
                     # Display detailed comparison
                     st.subheader("📋 Detailed Comparison")
                     st.dataframe(df_combined, use_container_width=True)
-                    
-                    # Download button
-                    with open(st.session_state.temp_file_path, 'rb') as file:
-                        st.download_button(
-                            label="📥 Download Reconciliation Report",
-                            data=file.read(),
-                            file_name=f"reconciled_{uploaded_file.name}",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
             
             except Exception as e:
                 st.error(f"❌ Error during reconciliation: {e}")
@@ -680,21 +779,72 @@ def main():
                     
                     st.success(f"✅ Invoice-wise reconciliation completed using {tally_sheet_used}!")
                     
+                    # Mark all processes as completed
+                    st.session_state.all_processes_completed = True
+                    
                     # Display results
                     st.subheader("📋 Invoice-wise Reconciliation Results")
                     st.dataframe(df_combined, use_container_width=True)
-                    
-                    # Download button
-                    with open(st.session_state.temp_file_path, 'rb') as file:
-                        st.download_button(
-                            label="📥 Download Invoice Reconciliation",
-                            data=file.read(),
-                            file_name=f"invoice_recon_{uploaded_file.name}",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
             
             except Exception as e:
                 st.error(f"❌ Error during invoice reconciliation: {e}")
+    
+    # Final Download Section - Show only if at least one process is completed
+    if (st.session_state.matching_completed or 
+        st.session_state.get('temp_file_path') and 
+        os.path.exists(st.session_state.temp_file_path)):
+        
+        st.markdown("---")
+        st.header("📦 Final Downloads")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📥 Complete Reconciliation Report")
+            st.info("📋 Download the complete Excel file with all sheets and analysis results")
+            
+            try:
+                with open(st.session_state.temp_file_path, 'rb') as file:
+                    st.download_button(
+                        label="📥 Download Complete Excel Report",
+                        data=file.read(),
+                        file_name=f"Complete_GST_Reconciliation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        type="primary"
+                    )
+            except:
+                st.warning("⚠️ Complete file not available. Please run at least one process first.")
+        
+        with col2:
+            st.subheader("📊 Process Status")
+            
+            # Check which sheets exist
+            try:
+                excel_file = pd.ExcelFile(st.session_state.temp_file_path)
+                available_sheets = excel_file.sheet_names
+                
+                process_status = {
+                    "🚀 Fuzzy Matching": "✅ Completed" if 'GSTR_Tally_Match' in available_sheets else "❌ Not Done",
+                    "🔁 Name Replacement": "✅ Completed" if 'Tally_Replaced' in available_sheets else "❌ Not Done",
+                    "📊 GST Reconciliation": "✅ Completed" if 'GST_Input_Summary' in available_sheets else "❌ Not Done",
+                    "🧾 Invoice Reconciliation": "✅ Completed" if 'Invoice_Recon' in available_sheets else "❌ Not Done"
+                }
+                
+                for process, status in process_status.items():
+                    st.write(f"{process}: {status}")
+                
+                # Show available sheets
+                st.write("**📂 Available Sheets:**")
+                for sheet in available_sheets:
+                    st.write(f"• {sheet}")
+                    
+            except Exception as e:
+                st.error(f"❌ Error checking file status: {e}")
+        
+        # Success message if all processes completed
+        if st.session_state.all_processes_completed:
+            st.success("🎉 All reconciliation processes completed successfully! You can now download the complete report.")
 
 if __name__ == "__main__":
     main()
