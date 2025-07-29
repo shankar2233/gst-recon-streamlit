@@ -167,12 +167,31 @@ def main():
     # Show navigation only if file is uploaded
     if st.session_state.uploaded_file_content is not None:
         st.sidebar.title("🧭 Navigation")
-        page = st.sidebar.selectbox("Choose a function:", [
+        
+        # Add a key to maintain selection state
+        page = st.sidebar.radio("Choose a function:", [
             "🔍 Fuzzy Matching",
             "🔄 Name Replacement", 
             "📊 GST Reconciliation",
             "🧾 Invoice-wise Reconciliation"
-        ])
+        ], key="navigation_radio")
+        
+        # Show workflow status
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("📋 Workflow Status")
+        
+        # File status
+        st.sidebar.success("✅ File Loaded")
+        
+        # Matching status
+        if st.session_state.matching_completed:
+            st.sidebar.success("✅ Matching Complete")
+            match_count = len([m for m in st.session_state.final_matches if m[1] != '' and m[3] == 'Yes'])
+            st.sidebar.info(f"🎯 {match_count} matches found")
+        else:
+            st.sidebar.warning("⏳ Matching Pending")
+        
+        st.sidebar.markdown("---")
         
         # Main content based on selection
         if page == "🔍 Fuzzy Matching":
@@ -237,14 +256,24 @@ def main():
             
             if not st.session_state.matching_completed or not st.session_state.final_matches:
                 st.warning("⚠️ Please run fuzzy matching first!")
-                if st.button("🔍 Go to Fuzzy Matching"):
-                    st.rerun()
+                st.info("👈 Use the navigation on the left to go to 'Fuzzy Matching' first")
             else:
                 st.info("✅ Match data found! Ready to replace names.")
                 
                 # Show match summary
                 matched_count = len([m for m in st.session_state.final_matches if m[1] != '' and m[3] == 'Yes'])
                 st.metric("Names to be replaced", matched_count)
+                
+                # Show preview of matches that will be replaced
+                if matched_count > 0:
+                    st.subheader("🔄 Names to be Replaced:")
+                    replacement_data = []
+                    for gstr, tally, score, confirm in st.session_state.final_matches:
+                        if gstr and tally and confirm == "Yes":
+                            replacement_data.append({"From (Tally)": tally, "To (GSTR)": gstr, "Score": score})
+                    
+                    if replacement_data:
+                        st.dataframe(pd.DataFrame(replacement_data), use_container_width=True)
                 
                 if st.button("🔁 Replace Names in Tally Sheet", type="primary"):
                     try:
@@ -273,11 +302,29 @@ def main():
         elif page == "📊 GST Reconciliation":
             st.header("📊 GST Reconciliation")
             
+            st.info("💡 This function works with the original data, regardless of name matching.")
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write("Click the button below to generate a comprehensive GST reconciliation report.")
+            with col2:
+                use_replaced_names = st.checkbox("Use replaced names", 
+                                               value=st.session_state.matching_completed,
+                                               disabled=not st.session_state.matching_completed)
+            
             if st.button("📊 Run GST Reconciliation", type="primary"):
                 try:
                     with st.spinner("Processing reconciliation..."):
                         df_tally = st.session_state.df_tally.copy()
                         df_gstr = st.session_state.df_gstr.copy()
+                        
+                        # Apply name replacements if requested
+                        if use_replaced_names and st.session_state.matching_completed:
+                            col_supplier = get_column(df_tally, 'Supplier')
+                            name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches 
+                                       if gstr and tally and confirm == "Yes"}
+                            df_tally[col_supplier] = df_tally[col_supplier].apply(lambda x: name_map.get(x, x))
+                            st.info(f"🔄 Applied {len(name_map)} name replacements to Tally data")
                         
                         # Add Cess column if missing
                         for df in [df_tally, df_gstr]:
