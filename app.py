@@ -4,6 +4,7 @@ from fuzzywuzzy import fuzz, process
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.worksheet.datavalidation import DataValidation
 import io
 from datetime import datetime
 import base64
@@ -52,6 +53,62 @@ def create_download_link(df, filename, sheet_name="Sheet1"):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">📥 Download {filename}</a>'
     return href
 
+def create_editable_download_link(df, filename):
+    """Create download link for editable Excel file with proper formatting"""
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name="Match_Results", index=False)
+        
+        # Get the workbook and worksheet
+        workbook = writer.book
+        worksheet = writer.sheets["Match_Results"]
+        
+        # Add data validation for Manual Confirmation column (assuming it's column D)
+        dv = DataValidation(type="list", formula1='"Yes,No"', allow_blank=False)
+        dv.error = 'Invalid Entry'
+        dv.errorTitle = 'Invalid Entry'
+        dv.prompt = 'Please select Yes or No'
+        dv.promptTitle = 'Manual Confirmation'
+        
+        # Apply validation to the Manual Confirmation column (column D, starting from row 2)
+        worksheet.add_data_validation(dv)
+        dv.add(f'D2:D{len(df)+1}')
+        
+        # Format headers
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+    
+    output.seek(0)
+    b64 = base64.b64encode(output.read()).decode()
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">📥 Download Editable {filename}</a>'
+    return href
+
+def load_edited_matches(uploaded_file):
+    """Load edited matches from uploaded Excel file"""
+    try:
+        df_edited = pd.read_excel(uploaded_file, sheet_name='Match_Results')
+        
+        # Validate required columns
+        required_cols = ['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation']
+        if not all(col in df_edited.columns for col in required_cols):
+            st.error("❌ Invalid file format. Required columns missing.")
+            return None
+            
+        # Validate Manual Confirmation values
+        valid_confirmations = ['Yes', 'No']
+        invalid_rows = df_edited[~df_edited['Manual Confirmation'].isin(valid_confirmations)]
+        
+        if not invalid_rows.empty:
+            st.error(f"❌ Invalid Manual Confirmation values found in {len(invalid_rows)} rows. Only 'Yes' or 'No' allowed.")
+            return None
+            
+        return df_edited.values.tolist()
+        
+    except Exception as e:
+        st.error(f"❌ Error reading edited file: {str(e)}")
+        return None
+
 def create_multi_sheet_download(dfs_dict, filename):
     """Create download link for multi-sheet Excel file"""
     output = io.BytesIO()
@@ -91,7 +148,7 @@ def two_way_match(tally_list, gstr_list, threshold):
     status_text = st.empty()
     total_steps = len(gstr_keys) + len(tally_keys)
     progress_count = 0
-
+    
     # GSTR to Tally matching
     for i, gstr_name in enumerate(gstr_keys):
         best_match, score = process.extractOne(gstr_name, tally_keys, scorer=fuzz.ratio)
@@ -108,7 +165,7 @@ def two_way_match(tally_list, gstr_list, threshold):
         progress_count += 1
         progress_bar.progress(progress_count / total_steps)
         status_text.text(f"GSTR → Tally: {i+1}/{len(gstr_keys)}")
-
+    
     # Tally to GSTR matching
     for i, tally_name in enumerate(tally_keys):
         if tally_name in used_tally:
@@ -127,7 +184,7 @@ def two_way_match(tally_list, gstr_list, threshold):
         progress_count += 1
         progress_bar.progress(progress_count / total_steps)
         status_text.text(f"Tally → GSTR: {i+1}/{len(tally_keys)}")
-
+    
     results.clear()
     for gstr_name, tally_name, score in match_map.values():
         confirm = "Yes" if gstr_name and tally_name else "No"
@@ -152,26 +209,23 @@ def main():
     
     # Process uploaded file
     if uploaded_file is not None:
-        if (st.session_state.uploaded_file_name != uploaded_file.name or 
+        if (st.session_state.uploaded_file_name != uploaded_file.name or
             st.session_state.uploaded_file_content != uploaded_file.getvalue()):
-            
             with st.spinner("Loading Excel file..."):
                 df_tally, df_gstr = load_excel_data(uploaded_file)
-            
-            if df_tally is not None and df_gstr is not None:
-                st.success(f"✅ File loaded successfully: {uploaded_file.name}")
-                st.info(f"📊 Tally Sheet: {len(df_tally)} rows | GSTR-2A Sheet: {len(df_gstr)} rows")
+                if df_tally is not None and df_gstr is not None:
+                    st.success(f"✅ File loaded successfully: {uploaded_file.name}")
+                    st.info(f"📊 Tally Sheet: {len(df_tally)} rows | GSTR-2A Sheet: {len(df_gstr)} rows")
         else:
             st.success(f"✅ File already loaded: {uploaded_file.name}")
     
     # Show navigation only if file is uploaded
     if st.session_state.uploaded_file_content is not None:
         st.sidebar.title("🧭 Navigation")
-        
         # Add a key to maintain selection state
         page = st.sidebar.radio("Choose a function:", [
             "🔍 Fuzzy Matching",
-            "🔄 Name Replacement", 
+            "🔄 Name Replacement",
             "📊 GST Reconciliation",
             "🧾 Invoice-wise Reconciliation"
         ], key="navigation_radio")
@@ -179,10 +233,8 @@ def main():
         # Show workflow status
         st.sidebar.markdown("---")
         st.sidebar.subheader("📋 Workflow Status")
-        
         # File status
         st.sidebar.success("✅ File Loaded")
-        
         # Matching status
         if st.session_state.matching_completed:
             st.sidebar.success("✅ Matching Complete")
@@ -190,7 +242,6 @@ def main():
             st.sidebar.info(f"🎯 {match_count} matches found")
         else:
             st.sidebar.warning("⏳ Matching Pending")
-        
         st.sidebar.markdown("---")
         
         # Main content based on selection
@@ -200,56 +251,118 @@ def main():
             # Threshold setting
             threshold = st.slider("Match Threshold", min_value=50, max_value=100, value=80, step=5)
             
-            if st.button("🚀 Start Fuzzy Matching", type="primary"):
-                try:
-                    df_tally = st.session_state.df_tally
-                    df_gstr = st.session_state.df_gstr
-                    
-                    col_supplier_tally = get_column(df_tally, 'Supplier')
-                    col_supplier_gstr = get_column(df_gstr, 'Supplier')
-                    
-                    tally_parties = get_raw_unique_names(df_tally[col_supplier_tally])
-                    gstr_parties = get_raw_unique_names(df_gstr[col_supplier_gstr])
-                    
-                    st.info(f"📈 Found {len(tally_parties)} unique suppliers in Tally and {len(gstr_parties)} unique suppliers in GSTR-2A")
-                    
-                    # Run matching
-                    with st.spinner("Running fuzzy matching..."):
-                        final_matches = two_way_match(tally_parties, gstr_parties, threshold)
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                if st.button("🚀 Start Fuzzy Matching", type="primary"):
+                    try:
+                        df_tally = st.session_state.df_tally
+                        df_gstr = st.session_state.df_gstr
+                        
+                        col_supplier_tally = get_column(df_tally, 'Supplier')
+                        col_supplier_gstr = get_column(df_gstr, 'Supplier')
+                        
+                        tally_parties = get_raw_unique_names(df_tally[col_supplier_tally])
+                        gstr_parties = get_raw_unique_names(df_gstr[col_supplier_gstr])
+                        
+                        st.info(f"📈 Found {len(tally_parties)} unique suppliers in Tally and {len(gstr_parties)} unique suppliers in GSTR-2A")
+                        
+                        # Run matching
+                        with st.spinner("Running fuzzy matching..."):
+                            final_matches = two_way_match(tally_parties, gstr_parties, threshold)
+                        
                         st.session_state.final_matches = final_matches
                         st.session_state.matching_completed = True
-                    
-                    # Display results
-                    df_result = pd.DataFrame(final_matches, columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
-                    df_result = df_result.sort_values(by=['Manual Confirmation', 'GSTR-2A Party', 'Tally Party'], ascending=[False, False, False])
-                    
-                    st.success("✅ Matching completed!")
-                    st.subheader("📋 Match Results")
-                    st.dataframe(df_result, use_container_width=True)
-                    
-                    # Download link
-                    st.markdown(create_download_link(df_result, "GSTR_Tally_Match.xlsx", "GSTR_Tally_Match"), unsafe_allow_html=True)
-                    
-                    # Summary statistics
-                    matched_count = len(df_result[df_result['Manual Confirmation'] == 'Yes'])
-                    unmatched_count = len(df_result[df_result['Manual Confirmation'] == 'No'])
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("✅ Successful Matches", matched_count)
-                    with col2:
-                        st.metric("❌ Unmatched", unmatched_count)
-                    with col3:
-                        st.metric("📊 Total Records", len(df_result))
-                    
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                        st.success("✅ Matching completed!")
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
             
-            # Show existing results if available
+            with col2:
+                st.write("**Alternative Options:**")
+                
+                # Upload edited matches
+                uploaded_matches = st.file_uploader(
+                    "Upload edited matches Excel file",
+                    type=['xlsx'],
+                    key="edited_matches_uploader",
+                    help="Upload previously downloaded and edited match results"
+                )
+                
+                if uploaded_matches is not None:
+                    if st.button("📤 Load Edited Matches"):
+                        edited_matches = load_edited_matches(uploaded_matches)
+                        if edited_matches is not None:
+                            st.session_state.final_matches = edited_matches
+                            st.session_state.matching_completed = True
+                            st.success("✅ Edited matches loaded successfully!")
+                            st.rerun()
+            
+            # Display and edit results
             if st.session_state.matching_completed and st.session_state.final_matches:
-                st.subheader("📋 Previous Match Results")
-                df_result = pd.DataFrame(st.session_state.final_matches, columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
-                st.dataframe(df_result, use_container_width=True)
+                st.subheader("📋 Match Results - Editable")
+                
+                df_result = pd.DataFrame(st.session_state.final_matches, 
+                                       columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
+                df_result = df_result.sort_values(by=['Manual Confirmation', 'GSTR-2A Party', 'Tally Party'], 
+                                                ascending=[False, False, False])
+                
+                # Editable dataframe
+                edited_df = st.data_editor(
+                    df_result,
+                    column_config={
+                        "Manual Confirmation": st.column_config.SelectboxColumn(
+                            "Manual Confirmation",
+                            help="Select Yes or No for manual confirmation",
+                            width="medium",
+                            options=["Yes", "No"],
+                            required=True,
+                        ),
+                        "GSTR-2A Party": st.column_config.TextColumn("GSTR-2A Party", disabled=True),
+                        "Tally Party": st.column_config.TextColumn("Tally Party", disabled=True),
+                        "Score": st.column_config.NumberColumn("Score", disabled=True, format="%.0f"),
+                    },
+                    disabled=["GSTR-2A Party", "Tally Party", "Score"],
+                    use_container_width=True,
+                    key="match_editor",
+                    height=400
+                )
+                
+                # Action buttons
+                col1, col2, col3 = st.columns([1, 1, 1])
+                
+                with col1:
+                    if st.button("💾 Save Changes", type="primary"):
+                        st.session_state.final_matches = edited_df.values.tolist()
+                        st.success("✅ Changes saved successfully!")
+                        st.rerun()
+                
+                with col2:
+                    # Download editable Excel file
+                    st.markdown(
+                        create_editable_download_link(df_result, "Editable_Match_Results.xlsx"), 
+                        unsafe_allow_html=True
+                    )
+                
+                with col3:
+                    # Download regular Excel file
+                    st.markdown(
+                        create_download_link(edited_df, "Final_Match_Results.xlsx", "Match_Results"), 
+                        unsafe_allow_html=True
+                    )
+                
+                # Summary statistics
+                matched_count = len(edited_df[edited_df['Manual Confirmation'] == 'Yes'])
+                unmatched_count = len(edited_df[edited_df['Manual Confirmation'] == 'No'])
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("✅ Confirmed Matches", matched_count)
+                with col2:
+                    st.metric("❌ Rejected Matches", unmatched_count)
+                with col3:
+                    st.metric("📊 Total Records", len(edited_df))
         
         elif page == "🔄 Name Replacement":
             st.header("🔄 Name Replacement")
@@ -274,41 +387,39 @@ def main():
                     
                     if replacement_data:
                         st.dataframe(pd.DataFrame(replacement_data), use_container_width=True)
-                
-                if st.button("🔁 Replace Names in Tally Sheet", type="primary"):
-                    try:
-                        df_tally = st.session_state.df_tally.copy()
-                        col_supplier = get_column(df_tally, 'Supplier')
                         
-                        # Create name mapping
-                        name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches 
-                                   if gstr and tally and confirm == "Yes"}
-                        
-                        df_new = df_tally.copy()
-                        df_new[col_supplier] = df_new[col_supplier].apply(lambda x: name_map.get(x, x))
-                        
-                        st.success("✅ Names replaced successfully!")
-                        st.subheader("📊 Updated Tally Data (Preview)")
-                        st.dataframe(df_new.head(10), use_container_width=True)
-                        
-                        # Download link
-                        st.markdown(create_download_link(df_new, "Tally_Replaced.xlsx", "Tally_Replaced"), unsafe_allow_html=True)
-                        
-                        st.info(f"🔄 Replaced {len(name_map)} supplier names in the Tally sheet.")
-                        
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+                        if st.button("🔁 Replace Names in Tally Sheet", type="primary"):
+                            try:
+                                df_tally = st.session_state.df_tally.copy()
+                                col_supplier = get_column(df_tally, 'Supplier')
+                                
+                                # Create name mapping
+                                name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches
+                                           if gstr and tally and confirm == "Yes"}
+                                
+                                df_new = df_tally.copy()
+                                df_new[col_supplier] = df_new[col_supplier].apply(lambda x: name_map.get(x, x))
+                                
+                                st.success("✅ Names replaced successfully!")
+                                st.subheader("📊 Updated Tally Data (Preview)")
+                                st.dataframe(df_new.head(10), use_container_width=True)
+                                
+                                # Download link
+                                st.markdown(create_download_link(df_new, "Tally_Replaced.xlsx", "Tally_Replaced"), unsafe_allow_html=True)
+                                st.info(f"🔄 Replaced {len(name_map)} supplier names in the Tally sheet.")
+                                
+                            except Exception as e:
+                                st.error(f"❌ Error: {str(e)}")
         
         elif page == "📊 GST Reconciliation":
             st.header("📊 GST Reconciliation")
-            
             st.info("💡 This function works with the original data, regardless of name matching.")
             
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.write("Click the button below to generate a comprehensive GST reconciliation report.")
             with col2:
-                use_replaced_names = st.checkbox("Use replaced names", 
+                use_replaced_names = st.checkbox("Use replaced names",
                                                value=st.session_state.matching_completed,
                                                disabled=not st.session_state.matching_completed)
             
@@ -321,7 +432,7 @@ def main():
                         # Apply name replacements if requested
                         if use_replaced_names and st.session_state.matching_completed:
                             col_supplier = get_column(df_tally, 'Supplier')
-                            name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches 
+                            name_map = {tally: gstr for gstr, tally, score, confirm in st.session_state.final_matches
                                        if gstr and tally and confirm == "Yes"}
                             df_tally[col_supplier] = df_tally[col_supplier].apply(lambda x: name_map.get(x, x))
                             st.info(f"🔄 Applied {len(name_map)} name replacements to Tally data")
@@ -407,44 +518,43 @@ def main():
                                 df_combined['State/UT Tax Variance'].sum()
                             ]
                         })
-                    
-                    st.success("✅ Reconciliation completed!")
-                    
-                    # Display results in tabs
-                    tab1, tab2, tab3 = st.tabs(["📊 Summary", "🔍 Details", "📥 Downloads"])
-                    
-                    with tab1:
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.subheader("GST Input Summary")
-                            st.dataframe(df_summary, use_container_width=True)
-                        with col2:
-                            st.subheader("Reconciliation Analysis")
-                            st.dataframe(df_recon, use_container_width=True)
-                    
-                    with tab2:
-                        st.subheader("Detailed Comparison")
-                        st.dataframe(df_combined, use_container_width=True)
                         
-                        if len(not_in_tally) > 0:
-                            st.subheader("Not in Tally but in GSTR-2A")
-                            st.dataframe(not_in_tally, use_container_width=True)
+                        st.success("✅ Reconciliation completed!")
                         
-                        if len(not_in_gstr) > 0:
-                            st.subheader("Not in GSTR-2A but in Tally")
-                            st.dataframe(not_in_gstr, use_container_width=True)
-                    
-                    with tab3:
-                        # Create download with multiple sheets
-                        sheets_dict = {
-                            'GST_Input_Summary': df_summary,
-                            'Reconciliation': df_recon,
-                            'T_vs_G-2A': df_combined,
-                            'N_I_T_B_I_G': not_in_tally,
-                            'N_I_G_B_I_T': not_in_gstr
-                        }
+                        # Display results in tabs
+                        tab1, tab2, tab3 = st.tabs(["📊 Summary", "🔍 Details", "📥 Downloads"])
                         
-                        st.markdown(create_multi_sheet_download(sheets_dict, "GST_Reconciliation_Report.xlsx"), unsafe_allow_html=True)
+                        with tab1:
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.subheader("GST Input Summary")
+                                st.dataframe(df_summary, use_container_width=True)
+                            with col2:
+                                st.subheader("Reconciliation Analysis")
+                                st.dataframe(df_recon, use_container_width=True)
+                        
+                        with tab2:
+                            st.subheader("Detailed Comparison")
+                            st.dataframe(df_combined, use_container_width=True)
+                            
+                            if len(not_in_tally) > 0:
+                                st.subheader("Not in Tally but in GSTR-2A")
+                                st.dataframe(not_in_tally, use_container_width=True)
+                            
+                            if len(not_in_gstr) > 0:
+                                st.subheader("Not in GSTR-2A but in Tally")
+                                st.dataframe(not_in_gstr, use_container_width=True)
+                        
+                        with tab3:
+                            # Create download with multiple sheets
+                            sheets_dict = {
+                                'GST_Input_Summary': df_summary,
+                                'Reconciliation': df_recon,
+                                'T_vs_G-2A': df_combined,
+                                'N_I_T_B_I_G': not_in_tally,
+                                'N_I_G_B_I_T': not_in_gstr
+                            }
+                            st.markdown(create_multi_sheet_download(sheets_dict, "GST_Reconciliation_Report.xlsx"), unsafe_allow_html=True)
                         
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
@@ -481,8 +591,8 @@ def main():
                         gstr_grouped = consolidate(df_gstr)
                         
                         df_combined = pd.merge(
-                            gstr_grouped, tally_grouped, 
-                            on=group_columns, how='outer', 
+                            gstr_grouped, tally_grouped,
+                            on=group_columns, how='outer',
                             suffixes=('_GSTR', '_Tally')
                         ).fillna(0)
                         
@@ -492,26 +602,25 @@ def main():
                         df_combined['Central Tax Variance'] = df_combined['Central Tax_GSTR'] - df_combined['Central Tax_Tally']
                         df_combined['State/UT Tax Variance'] = df_combined['State/UT tax_GSTR'] - df_combined['State/UT tax_Tally']
                         df_combined['Cess Variance'] = df_combined['Cess_GSTR'] - df_combined['Cess_Tally']
-                    
-                    st.success("✅ Invoice-wise reconciliation completed!")
-                    
-                    # Display summary by supplier
-                    suppliers = df_combined['Supplier'].unique()
-                    if len(suppliers) > 0:
-                        selected_supplier = st.selectbox("Select Supplier to view details:", suppliers)
                         
-                        if selected_supplier:
-                            supplier_data = df_combined[df_combined['Supplier'] == selected_supplier]
-                            st.subheader(f"Invoice Details for: {selected_supplier}")
-                            st.dataframe(supplier_data, use_container_width=True)
-                    
-                    # Show all data in expander
-                    with st.expander("📊 View All Invoice Reconciliation Data"):
-                        st.dataframe(df_combined, use_container_width=True)
-                    
-                    # Full download
-                    st.markdown(create_download_link(df_combined, "Invoice_Reconciliation.xlsx", "Invoice_Recon"), unsafe_allow_html=True)
-                    
+                        st.success("✅ Invoice-wise reconciliation completed!")
+                        
+                        # Display summary by supplier
+                        suppliers = df_combined['Supplier'].unique()
+                        if len(suppliers) > 0:
+                            selected_supplier = st.selectbox("Select Supplier to view details:", suppliers)
+                            if selected_supplier:
+                                supplier_data = df_combined[df_combined['Supplier'] == selected_supplier]
+                                st.subheader(f"Invoice Details for: {selected_supplier}")
+                                st.dataframe(supplier_data, use_container_width=True)
+                        
+                        # Show all data in expander
+                        with st.expander("📊 View All Invoice Reconciliation Data"):
+                            st.dataframe(df_combined, use_container_width=True)
+                        
+                        # Full download
+                        st.markdown(create_download_link(df_combined, "Invoice_Reconciliation.xlsx", "Invoice_Recon"), unsafe_allow_html=True)
+                        
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
                     st.write("Error details:", str(e))
