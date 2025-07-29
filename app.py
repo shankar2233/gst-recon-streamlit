@@ -11,7 +11,6 @@ import io
 import tempfile
 
 # --- Utility Functions ---
-
 def get_column(df, colname):
     """FIXED: Handle integer column names properly"""
     for col in df.columns:
@@ -40,77 +39,13 @@ def fix_tally_columns(df_tally):
                 new_columns.append(expected_cols[i])
             else:
                 new_columns.append(f"Column_{i}")
-        
         df_tally.columns = new_columns
     
     return df_tally
 
-def create_default_excel():
-    """Create a default Excel template with your actual sample data"""
-    # Your Tally data (excluding the totals row)
-    tally_data = {
-        'GSTIN of supplier': ['', '', '', ''],
-        'Supplier': ['ABC Private Ltd', 'XYZ Industries', 'ABC Private Ltd', 'GHI Enterprises'],
-        'Invoice number': ['INV-0001', 'INV-0002', 'INV-0003', 'INV-0030'],
-        'Invoice Date': ['2024-04-15', '2024-04-20', '2024-04-15', '2024-09-10'],
-        'Invoice Value': [118000, 177000, 112000, 318000],
-        'Rate': [18, 18, 18, 5],
-        'Taxable Value': [100000, 150000, 100000, 300000],
-        'Integrated Tax': [0, 27000, 0, 0],
-        'Central Tax': [9000, 0, 6000, 9000],
-        'State/UT tax': [9000, 0, 6000, 9000],
-        'Cess': [0, 0, 0, 0]
-    }
-    
-    # Your GSTR-2A data (excluding the totals row)
-    gstr_data = {
-        'GSTIN of supplier': ['', '', '', ''],
-        'Supplier': ['ABC Private Limited', 'DEF Corporation', 'ABC Private Limited', 'GHI Enterprises'],
-        'Invoice number': ['INV-0001', 'INV-0004', 'INV-0005', 'INV-0030'],
-        'Invoice Date': ['2024-04-15', '2024-04-25', '2024-04-15', '2024-09-10'],
-        'Invoice Value': [118000, 89600, 112000, 212000],
-        'Rate': [18, 12, 18, 5],
-        'Taxable Value': [100000, 80000, 100000, 200000],
-        'Integrated Tax': [0, 0, 0, 0],
-        'Central Tax': [9000, 4800, 6000, 6000],
-        'State/UT tax': [9000, 4800, 6000, 6000],
-        'Cess': [0, 0, 0, 0]
-    }
-    
-    # Create DataFrames
-    df_tally = pd.DataFrame(tally_data)
-    df_gstr = pd.DataFrame(gstr_data)
-    
-    # Create Excel file in memory with the exact structure from your file
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        # For Tally sheet - add totals row first, then headers, then data
-        tally_totals = ['', '', '', '', 650000, '', 650000, 27000, 24000, 24000.1, 0]
-        tally_headers = list(df_tally.columns)
-        
-        # Create combined data for Tally sheet
-        tally_combined_data = [tally_totals, tally_headers] + df_tally.values.tolist()
-        tally_df_final = pd.DataFrame(tally_combined_data)
-        tally_df_final.to_excel(writer, sheet_name='Tally', index=False, header=False)
-        
-        # For GSTR-2A sheet - add totals row first, then headers, then data
-        gstr_totals = ['', '', '', '', 480000, '', 480000, 0, 25800, 25800.1, 0.1]
-        gstr_headers = list(df_gstr.columns)
-        
-        # Create combined data for GSTR-2A sheet
-        gstr_combined_data = [gstr_totals, gstr_headers] + df_gstr.values.tolist()
-        gstr_df_final = pd.DataFrame(gstr_combined_data)
-        gstr_df_final.to_excel(writer, sheet_name='GSTR-2A', index=False, header=False)
-    
-    buffer.seek(0)
-    return buffer
-
-
 # --- Fuzzy Matching Logic ---
-
 def two_way_match(tally_list, gstr_list, threshold):
     match_map, used_tally, used_gstr = {}, set(), set()
-    
     tally_upper = {name.upper(): name for name in tally_list}
     gstr_upper = {name.upper(): name for name in gstr_list}
     tally_keys, gstr_keys = list(tally_upper.keys()), list(gstr_upper.keys())
@@ -123,7 +58,6 @@ def two_way_match(tally_list, gstr_list, threshold):
     for i, gstr_name in enumerate(gstr_keys):
         best_match, score = process.extractOne(gstr_name, tally_keys, scorer=fuzz.ratio)
         gstr_real = gstr_upper[gstr_name]
-        
         if best_match and score >= threshold and best_match not in used_tally:
             tally_real = tally_upper[best_match]
             match_map[(gstr_real, tally_real)] = (gstr_real, tally_real, score)
@@ -141,10 +75,8 @@ def two_way_match(tally_list, gstr_list, threshold):
     for i, tally_name in enumerate(tally_keys):
         if tally_name in used_tally:
             continue
-        
         best_match, score = process.extractOne(tally_name, gstr_keys, scorer=fuzz.ratio)
         tally_real = tally_upper[tally_name]
-        
         if best_match and score >= threshold and best_match not in used_gstr:
             gstr_real = gstr_upper[best_match]
             match_map[(gstr_real, tally_real)] = (gstr_real, tally_real, score)
@@ -163,116 +95,89 @@ def two_way_match(tally_list, gstr_list, threshold):
     
     results = []
     for gstr_name, tally_name, score in match_map.values():
-        confirm = "Yes" if gstr_name and tally_name else "No"
+        # Set default confirmation based on match quality
+        if gstr_name and tally_name and score >= 80:
+            confirm = "Yes"
+        else:
+            confirm = "No"
         results.append([gstr_name, tally_name, score, confirm])
     
     return results
 
-def validate_file_and_sheets(file_path):
-    """Validate uploaded file has required sheets"""
-    try:
-        excel_file = pd.ExcelFile(file_path)
-        sheets = excel_file.sheet_names
-        
-        if 'Tally' not in sheets or 'GSTR-2A' not in sheets:
-            return False, f"Missing required sheets. Found: {sheets}. Required: ['Tally', 'GSTR-2A']"
-        
-        return True, "File validated successfully"
-    except Exception as e:
-        return False, f"Error reading file: {str(e)}"
-
 # --- Streamlit App ---
-
 def main():
     st.set_page_config(
-        page_title="GSTR vs Tally Reconciliation", 
+        page_title="GSTR vs Tally Reconciliation",
         page_icon="📊",
         layout="wide"
     )
     
-    # Header with default Excel download
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        st.title("🔄 GSTR vs Tally Match + GST Reconciliation")
-        st.markdown("**Fuzzy Match GSTR-2A/2B vs Books and Perform GST Reconciliation**")
-    
-    with col2:
-        st.markdown("### 📄 Default Excel Template")
-        
-        # Create and provide default Excel download
-        default_excel = create_default_excel()
-        st.download_button(
-            label="📥 Download Default Excel Template",
-            data=default_excel,
-            file_name="GSTR_Tally_Template.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="Download this template, replace sample data with your data, and upload it back"
-        )
-        
-        st.info("💡 Use this template format for your data")
+    st.title("🔄 GSTR vs Tally Match + GST Reconciliation")
+    st.markdown("**Fuzzy Match GSTR-2A/2B vs Books and Perform GST Reconciliation**")
     
     # Initialize session state
     if 'uploaded_file' not in st.session_state:
         st.session_state.uploaded_file = None
+    if 'match_results' not in st.session_state:
+        st.session_state.match_results = None
     if 'temp_file_path' not in st.session_state:
         st.session_state.temp_file_path = None
-    if 'file_validated' not in st.session_state:
-        st.session_state.file_validated = False
     if 'matching_completed' not in st.session_state:
         st.session_state.matching_completed = False
-    if 'replacement_completed' not in st.session_state:
-        st.session_state.replacement_completed = False
+    if 'manual_confirmations' not in st.session_state:
+        st.session_state.manual_confirmations = {}
     
     # File upload
-    st.header("📂 Upload Your Excel File")
+    st.header("📂 Upload Excel File")
     uploaded_file = st.file_uploader(
         "Choose an Excel file with 'Tally' and 'GSTR-2A' sheets",
-        type=['xlsx', 'xls'],
-        help="Upload the Excel file with your Tally and GSTR-2A data"
+        type=['xlsx', 'xls']
     )
     
     if uploaded_file is not None:
+        st.session_state.uploaded_file = uploaded_file
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             st.session_state.temp_file_path = tmp_file.name
-            st.session_state.uploaded_file = uploaded_file
         
-        # Validate file
-        is_valid, message = validate_file_and_sheets(st.session_state.temp_file_path)
+        st.success(f"✅ File uploaded: {uploaded_file.name}")
         
-        if is_valid:
-            st.success(f"✅ File uploaded and validated: {uploaded_file.name}")
-            st.session_state.file_validated = True
-        else:
-            st.error(f"❌ {message}")
-            st.session_state.file_validated = False
+        # Validate sheets
+        try:
+            excel_file = pd.ExcelFile(st.session_state.temp_file_path)
+            sheets = excel_file.sheet_names
+            if 'Tally' in sheets and 'GSTR-2A' in sheets:
+                st.success("✅ Required sheets 'Tally' and 'GSTR-2A' found!")
+            else:
+                st.error(f"❌ Required sheets not found. Available sheets: {sheets}")
+                return
+        except Exception as e:
+            st.error(f"❌ Error reading file: {e}")
             return
     
-    if not st.session_state.file_validated:
-        st.info("👆 Please upload a valid Excel file to continue")
+    if st.session_state.uploaded_file is None:
+        st.info("👆 Please upload an Excel file to continue")
         return
     
-    # Main functionality tabs - Now linked and sequential
+    # Main functionality tabs
     tab1, tab2, tab3, tab4 = st.tabs([
-        "🚀 Step 1: Fuzzy Matching", 
-        "🔁 Step 2: Name Replacement", 
-        "📊 Step 3: GST Reconciliation", 
-        "🧾 Step 4: Invoice Reconciliation"
+        "🚀 Fuzzy Matching",
+        "🔁 Name Replacement", 
+        "📊 GST Reconciliation",
+        "🧾 Invoice Reconciliation"
     ])
     
     with tab1:
-        st.header("🚀 Step 1: Fuzzy Matching")
-        st.info("📋 This step will match supplier names between Tally and GSTR-2A sheets")
+        st.header("🚀 Start Fuzzy Matching")
         
         col1, col2 = st.columns([1, 2])
         
         with col1:
             threshold = st.number_input(
-                "Match Threshold (%)", 
-                min_value=0, 
-                max_value=100, 
+                "Match Threshold (%)",
+                min_value=0,
+                max_value=100,
                 value=80,
                 help="Minimum similarity score for matching names"
             )
@@ -294,57 +199,246 @@ def main():
                     
                     # Perform matching
                     matches = two_way_match(tally_parties, gstr_parties, threshold)
-                    
-                    # Create results dataframe
-                    df_result = pd.DataFrame(matches, columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
-                    df_result.sort_values(by=['Manual Confirmation', 'GSTR-2A Party', 'Tally Party'], 
-                                        ascending=[False, False, False], inplace=True)
-                    
-                    # Update the working file
-                    with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                        df_result.to_excel(writer, sheet_name='GSTR_Tally_Match', index=False)
-                    
+                    st.session_state.match_results = matches
                     st.session_state.matching_completed = True
-                    st.success("✅ Matching completed successfully! Proceed to Step 2.")
                     
-                    # Display results
-                    st.subheader("📋 Matching Results")
-                    st.dataframe(df_result, use_container_width=True)
+                    # Initialize manual confirmations
+                    st.session_state.manual_confirmations = {}
+                    for i, match in enumerate(matches):
+                        st.session_state.manual_confirmations[i] = match[3]  # Default confirmation
                     
-                    # Show download for current progress
-                    with open(st.session_state.temp_file_path, 'rb') as file:
-                        st.download_button(
-                            label="📥 Download Excel with Matches",
-                            data=file.read(),
-                            file_name=f"step1_matched_{uploaded_file.name}",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                        
+                    st.success("✅ Matching completed successfully!")
+            
             except Exception as e:
                 st.error(f"❌ Error during matching: {e}")
+        
+        # Display results with interactive dropdowns
+        if st.session_state.matching_completed and st.session_state.match_results:
+            st.subheader("📋 Matching Results - Manual Confirmation")
+            
+            df_result = pd.DataFrame(st.session_state.match_results, 
+                                   columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
+            
+            # Create interactive confirmation interface
+            st.write("**Review and confirm matches below:**")
+            
+            # Display results in a form for better organization
+            with st.form("confirmation_form"):
+                cols = st.columns([3, 3, 1, 1, 1])
+                cols[0].write("**GSTR-2A Party**")
+                cols[1].write("**Tally Party**") 
+                cols[2].write("**Score**")
+                cols[3].write("**Confirmation**")
+                cols[4].write("**Auto-Set**")
+                
+                for i, (gstr_name, tally_name, score, default_confirm) in enumerate(st.session_state.match_results):
+                    cols = st.columns([3, 3, 1, 1, 1])
+                    
+                    # Display names and score
+                    cols[0].write(str(gstr_name) if gstr_name else "")
+                    cols[1].write(str(tally_name) if tally_name else "")
+                    cols[2].write(f"{score:.0f}%")
+                    
+                    # Dropdown for confirmation
+                    current_value = st.session_state.manual_confirmations.get(i, default_confirm)
+                    confirmation = cols[3].selectbox(
+                        f"Confirm {i}",
+                        options=["Yes", "No"],
+                        index=0 if current_value == "Yes" else 1,
+                        key=f"confirm_{i}",
+                        label_visibility="collapsed"
+                    )
+                    st.session_state.manual_confirmations[i] = confirmation
+                    
+                    # Auto-set button for high scores
+                    if cols[4].button(f"Auto", key=f"auto_{i}", help="Set to Yes if score > 80%"):
+                        if score >= 80 and gstr_name and tally_name:
+                            st.session_state.manual_confirmations[i] = "Yes"
+                        else:
+                            st.session_state.manual_confirmations[i] = "No"
+                        st.rerun()
+                
+                # Form submit button (optional, as changes are already tracked)
+                submitted = st.form_submit_button("Update All Confirmations")
+                if submitted:
+                    st.success("✅ Confirmations updated!")
+            
+            # Bulk operations
+            st.subheader("🔄 Bulk Operations")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("✅ Set All High Scores to Yes", help="Auto-confirm all matches with score ≥ 80%"):
+                    for i, (gstr_name, tally_name, score, _) in enumerate(st.session_state.match_results):
+                        if score >= 80 and gstr_name and tally_name:
+                            st.session_state.manual_confirmations[i] = "Yes"
+                        else:
+                            st.session_state.manual_confirmations[i] = "No"
+                    st.rerun()
+            
+            with col2:
+                if st.button("❌ Set All to No"):
+                    for i in range(len(st.session_state.match_results)):
+                        st.session_state.manual_confirmations[i] = "No"
+                    st.rerun()
+            
+            with col3:
+                if st.button("🔄 Reset to Default"):
+                    for i, match in enumerate(st.session_state.match_results):
+                        st.session_state.manual_confirmations[i] = match[3]
+                    st.rerun()
+            
+            # Excel Download/Upload functionality
+            st.subheader("📥📤 Excel Download/Upload for Bulk Editing")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Prepare current data for download
+                current_results = []
+                for i, (gstr_name, tally_name, score, _) in enumerate(st.session_state.match_results):
+                    current_confirmation = st.session_state.manual_confirmations.get(i, "No")
+                    current_results.append([gstr_name, tally_name, score, current_confirmation])
+                
+                df_download = pd.DataFrame(current_results, 
+                                         columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
+                
+                # Create Excel file in memory
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_download.to_excel(writer, sheet_name='Matching_Results', index=False)
+                output.seek(0)
+                
+                st.download_button(
+                    label="📥 Download for Offline Editing",
+                    data=output.getvalue(),
+                    file_name=f"matching_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            with col2:
+                # Upload edited file
+                uploaded_confirmations = st.file_uploader(
+                    "📤 Upload Edited Confirmations",
+                    type=['xlsx', 'xls'],
+                    help="Upload the Excel file with your edited confirmations"
+                )
+                
+                if uploaded_confirmations is not None:
+                    try:
+                        df_uploaded = pd.read_excel(uploaded_confirmations)
+                        
+                        # Validate columns
+                        required_cols = ['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation']
+                        if all(col in df_uploaded.columns for col in required_cols):
+                            # Update confirmations
+                            for i, row in df_uploaded.iterrows():
+                                if i < len(st.session_state.match_results):
+                                    confirmation = str(row['Manual Confirmation']).strip()
+                                    if confirmation.upper() in ['YES', 'Y', '1', 'TRUE']:
+                                        st.session_state.manual_confirmations[i] = "Yes"
+                                    else:
+                                        st.session_state.manual_confirmations[i] = "No"
+                            
+                            st.success("✅ Confirmations updated from uploaded file!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Invalid file format. Required columns: " + ", ".join(required_cols))
+                    
+                    except Exception as e:
+                        st.error(f"❌ Error reading uploaded file: {e}")
+            
+            # Continue button to save final results
+            st.subheader("▶️ Continue to Next Step")
+            
+            if st.button("▶️ Continue with Selected Confirmations", type="primary", use_container_width=True):
+                try:
+                    # Create final results with updated confirmations
+                    final_results = []
+                    for i, (gstr_name, tally_name, score, _) in enumerate(st.session_state.match_results):
+                        final_confirmation = st.session_state.manual_confirmations.get(i, "No")
+                        final_results.append([gstr_name, tally_name, score, final_confirmation])
+                    
+                    # Create results dataframe
+                    df_result = pd.DataFrame(final_results, 
+                                           columns=['GSTR-2A Party', 'Tally Party', 'Score', 'Manual Confirmation'])
+                    df_result.sort_values(by=['Manual Confirmation', 'GSTR-2A Party', 'Tally Party'],
+                                        ascending=[False, False, False], inplace=True)
+                    
+                    # Save to Excel - Create or update the sheet
+                    try:
+                        # Try to read existing workbook
+                        book = load_workbook(st.session_state.temp_file_path)
+                        
+                        # Remove existing sheet if it exists
+                        if 'GSTR_Tally_Match' in book.sheetnames:
+                            book.remove(book['GSTR_Tally_Match'])
+                        
+                        # Create new sheet
+                        ws = book.create_sheet('GSTR_Tally_Match')
+                        
+                        # Add data
+                        for r in dataframe_to_rows(df_result, index=False, header=True):
+                            ws.append(r)
+                        
+                        # Format header
+                        for cell in ws[1]:
+                            cell.font = Font(bold=True)
+                        
+                        book.save(st.session_state.temp_file_path)
+                        book.close()
+                        
+                    except Exception as e:
+                        # Fallback to pandas method
+                        with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+                            df_result.to_excel(writer, sheet_name='GSTR_Tally_Match', index=False)
+                    
+                    st.success("✅ Final confirmations saved! You can now proceed to Name Replacement.")
+                    
+                    # Show summary
+                    yes_count = sum(1 for conf in st.session_state.manual_confirmations.values() if conf == "Yes")
+                    total_count = len(st.session_state.manual_confirmations)
+                    
+                    st.info(f"📊 Summary: {yes_count} out of {total_count} matches confirmed for replacement")
+                    
+                    # Display final results
+                    st.subheader("📋 Final Matching Results")
+                    st.dataframe(df_result, use_container_width=True)
+                    
+                    # Download button for final results
+                    with open(st.session_state.temp_file_path, 'rb') as file:
+                        st.download_button(
+                            label="📥 Download Excel with Final Matches",
+                            data=file.read(),
+                            file_name=f"final_matches_{uploaded_file.name}",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                
+                except Exception as e:
+                    st.error(f"❌ Error saving confirmations: {e}")
     
+    # Rest of the tabs remain the same...
     with tab2:
-        st.header("🔁 Step 2: Name Replacement")
-        
-        if not st.session_state.matching_completed:
-            st.warning("⚠️ Please complete Step 1 (Fuzzy Matching) first!")
-            return
-        
-        st.info("💡 This step will replace Tally names with matched GSTR names based on Step 1 results")
+        st.header("🔁 Name Replacement")
+        st.info("💡 First complete fuzzy matching, then use this to replace Tally names with GSTR names")
         
         if st.button("🔁 Replace Matched Names", use_container_width=True):
             try:
                 with st.spinner("Processing name replacements..."):
-                    # Read match results from the same file
-                    df_matches = pd.read_excel(st.session_state.temp_file_path, sheet_name='GSTR_Tally_Match')
-                    df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally', header=1)
+                    # Read match results
+                    try:
+                        df_matches = pd.read_excel(st.session_state.temp_file_path, sheet_name='GSTR_Tally_Match')
+                    except:
+                        st.error("❌ Please complete fuzzy matching first and click 'Continue with Selected Confirmations'")
+                        return
                     
+                    df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally', header=1)
                     col_supplier = get_column(df_tally, 'Supplier')
                     
                     # Create name mapping
                     name_map = {}
                     replacement_count = 0
-                    
                     for _, row in df_matches.iterrows():
                         gstr_name = row['GSTR-2A Party']
                         tally_name = row['Tally Party']
@@ -357,7 +451,6 @@ def main():
                     
                     # Apply replacements
                     df_new = df_tally.copy()
-                    
                     def replace_name(name):
                         if pd.isna(name):
                             return name
@@ -369,55 +462,40 @@ def main():
                     if 'Invoice Date' in df_new.columns:
                         df_new['Invoice Date'] = pd.to_datetime(df_new['Invoice Date'], errors='coerce').dt.strftime('%d-%m-%Y')
                     
-                    # Update the working file
+                    # Save updated data
                     with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                         df_new.to_excel(writer, sheet_name='Tally_Replaced', index=False, header=True)
                     
-                    st.session_state.replacement_completed = True
-                    st.success(f"✅ Replaced {replacement_count} supplier names successfully! Proceed to Step 3.")
+                    st.success(f"✅ Replaced {replacement_count} supplier names successfully!")
                     
                     # Show preview
                     st.subheader("📋 Preview of Replaced Data")
                     st.dataframe(df_new.head(), use_container_width=True)
                     
-                    # Show download for current progress
+                    # Download button
                     with open(st.session_state.temp_file_path, 'rb') as file:
                         st.download_button(
                             label="📥 Download Excel with Replacements",
                             data=file.read(),
-                            file_name=f"step2_replaced_{uploaded_file.name}",
+                            file_name=f"replaced_{uploaded_file.name}",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                        
+            
             except Exception as e:
                 st.error(f"❌ Error during replacement: {e}")
     
+    # Tab 3 and Tab 4 remain the same as in your original code...
     with tab3:
-        st.header("📊 Step 3: GST Reconciliation")
-        
-        # Check prerequisites
-        can_proceed = True
-        if not st.session_state.matching_completed:
-            st.warning("⚠️ Please complete Step 1 (Fuzzy Matching) first!")
-            can_proceed = False
-        
-        if can_proceed:
-            if st.session_state.replacement_completed:
-                st.info("✅ Using replaced names from Step 2 for reconciliation")
-            else:
-                st.info("ℹ️ Using original Tally names (Step 2 not completed)")
-        
-        if not can_proceed:
-            return
+        st.header("📊 GST Reconciliation")
         
         if st.button("📊 Run GST Reconciliation", use_container_width=True):
             try:
                 with st.spinner("Processing GST reconciliation..."):
-                    # Use Tally_Replaced if available, otherwise original Tally
+                    # Check which Tally sheet to use
                     try:
                         df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally_Replaced', header=0)
                         tally_sheet_used = "Tally_Replaced"
-                        st.success("✅ Using replaced names for reconciliation")
+                        st.info("✅ Using Tally_Replaced sheet for reconciliation")
                     except:
                         df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally', header=1)
                         tally_sheet_used = "Tally"
@@ -459,7 +537,6 @@ def main():
                         def create_group_key(row, gstin_col, supplier_col):
                             gstin_val = str(row[gstin_col]).strip() if pd.notna(row[gstin_col]) else ''
                             supplier_val = str(row[supplier_col]).strip() if pd.notna(row[supplier_col]) else ''
-                            
                             if not gstin_val or gstin_val == 'NO_GSTIN' or gstin_val == 'nan':
                                 return f"SUPPLIER_{supplier_val}"
                             else:
@@ -478,7 +555,6 @@ def main():
                     
                     # Group and aggregate
                     group_cols = ['Group_Key']
-                    
                     df_tally_grp = df_tally_processed.groupby(group_cols).agg({
                         col_name: 'first',
                         col_itax: 'sum',
@@ -536,14 +612,14 @@ def main():
                         ]
                     })
                     
-                    # Update the working file with all reconciliation sheets
+                    # Save results
                     with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                         df_summary.to_excel(writer, sheet_name='GST_Input_Summary', index=False)
                         df_combined.to_excel(writer, sheet_name='T_vs_G-2A', index=False)
                         not_in_tally.to_excel(writer, sheet_name='N_I_T_B_I_G', index=False)
                         not_in_gstr.to_excel(writer, sheet_name='N_I_G_B_I_T', index=False)
                     
-                    st.success(f"✅ GST Reconciliation completed using {tally_sheet_used}! Proceed to Step 4 if needed.")
+                    st.success(f"✅ GST Reconciliation completed using {tally_sheet_used}!")
                     
                     # Display summary
                     st.subheader("📊 GST Input Summary")
@@ -553,35 +629,25 @@ def main():
                     st.subheader("📋 Detailed Comparison")
                     st.dataframe(df_combined, use_container_width=True)
                     
-                    # Show download for current progress
+                    # Download button
                     with open(st.session_state.temp_file_path, 'rb') as file:
                         st.download_button(
-                            label="📥 Download GST Reconciliation Report",
+                            label="📥 Download Reconciliation Report",
                             data=file.read(),
-                            file_name=f"step3_gst_reconciled_{uploaded_file.name}",
+                            file_name=f"reconciled_{uploaded_file.name}",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                        
+            
             except Exception as e:
                 st.error(f"❌ Error during reconciliation: {e}")
     
     with tab4:
-        st.header("🧾 Step 4: Invoice-wise Reconciliation")
-        
-        # Check prerequisites
-        if not st.session_state.matching_completed:
-            st.warning("⚠️ Please complete Step 1 (Fuzzy Matching) first!")
-            return
-        
-        if st.session_state.replacement_completed:
-            st.info("✅ Using replaced names from Step 2 for invoice reconciliation")
-        else:
-            st.info("ℹ️ Using original Tally names (Step 2 not completed)")
+        st.header("🧾 Invoice-wise Reconciliation")
         
         if st.button("🧾 Run Invoice Reconciliation", use_container_width=True):
             try:
                 with st.spinner("Processing invoice-wise reconciliation..."):
-                    # Use Tally_Replaced if available, otherwise original Tally
+                    # Check which Tally sheet to use
                     try:
                         df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally_Replaced', header=0)
                         tally_sheet_used = "Tally_Replaced"
@@ -616,14 +682,13 @@ def main():
                     
                     # Combine and calculate variances
                     df_combined = pd.merge(gstr_grouped, tally_grouped, on=group_columns, how='outer', suffixes=('_GSTR', '_Tally')).fillna(0)
-                    
                     df_combined['Taxable Value Variance'] = df_combined['Taxable Value_GSTR'] - df_combined['Taxable Value_Tally']
                     df_combined['Integrated Tax Variance'] = df_combined['Integrated Tax_GSTR'] - df_combined['Integrated Tax_Tally']
                     df_combined['Central Tax Variance'] = df_combined['Central Tax_GSTR'] - df_combined['Central Tax_Tally']
                     df_combined['State/UT Tax Variance'] = df_combined['State/UT tax_GSTR'] - df_combined['State/UT tax_Tally']
                     df_combined['Cess Variance'] = df_combined['Cess_GSTR'] - df_combined['Cess_Tally']
                     
-                    # Update the working file
+                    # Save to Excel
                     with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                         df_combined.to_excel(writer, sheet_name='Invoice_Recon', index=False)
                     
@@ -633,57 +698,17 @@ def main():
                     st.subheader("📋 Invoice-wise Reconciliation Results")
                     st.dataframe(df_combined, use_container_width=True)
                     
-                    # Final download with all completed steps
+                    # Download button
                     with open(st.session_state.temp_file_path, 'rb') as file:
                         st.download_button(
-                            label="📥 Download Complete Reconciliation Report",
+                            label="📥 Download Invoice Reconciliation",
                             data=file.read(),
-                            file_name=f"final_complete_{uploaded_file.name}",
+                            file_name=f"invoice_recon_{uploaded_file.name}",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                        
+            
             except Exception as e:
                 st.error(f"❌ Error during invoice reconciliation: {e}")
-    
-    # Progress tracker at bottom
-    st.markdown("---")
-    st.subheader("📊 Process Progress")
-    
-    progress_cols = st.columns(4)
-    
-    with progress_cols[0]:
-        if st.session_state.matching_completed:
-            st.success("✅ Step 1: Matching Complete")
-        else:
-            st.info("⏳ Step 1: Pending")
-    
-    with progress_cols[1]:
-        if st.session_state.replacement_completed:
-            st.success("✅ Step 2: Replacement Complete")
-        elif st.session_state.matching_completed:
-            st.warning("⚠️ Step 2: Ready to Process")
-        else:
-            st.info("⏳ Step 2: Waiting for Step 1")
-    
-    with progress_cols[2]:
-        try:
-            pd.read_excel(st.session_state.temp_file_path, sheet_name='GST_Input_Summary')
-            st.success("✅ Step 3: GST Reconciliation Complete")
-        except:
-            if st.session_state.matching_completed:
-                st.warning("⚠️ Step 3: Ready to Process")
-            else:
-                st.info("⏳ Step 3: Waiting for Step 1")
-    
-    with progress_cols[3]:
-        try:
-            pd.read_excel(st.session_state.temp_file_path, sheet_name='Invoice_Recon')
-            st.success("✅ Step 4: Invoice Reconciliation Complete")
-        except:
-            if st.session_state.matching_completed:
-                st.warning("⚠️ Step 4: Ready to Process")
-            else:
-                st.info("⏳ Step 4: Waiting for Step 1")
 
 if __name__ == "__main__":
     main()
