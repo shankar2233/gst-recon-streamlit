@@ -145,7 +145,7 @@ def show_help_instructions():
     - 🔢 Numeric columns should contain only numbers
     """)
 
-# --- Fuzzy Matching Logic (same as before) ---
+# --- Fuzzy Matching Logic ---
 def two_way_match(tally_list, gstr_list, threshold):
     match_map, used_tally, used_gstr = {}, set(), set()
     tally_upper = {name.upper(): name for name in tally_list}
@@ -230,6 +230,8 @@ def main():
         st.session_state.manual_confirmations = {}
     if 'all_processes_completed' not in st.session_state:
         st.session_state.all_processes_completed = False
+    if 'saved_match_results' not in st.session_state:
+        st.session_state.saved_match_results = None
     
     # Top section with file upload and help
     col1, col2, col3 = st.columns([2, 1, 1])
@@ -480,9 +482,9 @@ def main():
                     df_result.sort_values(by=['Manual Confirmation', 'GSTR-2A Party', 'Tally Party'],
                                         ascending=[False, False, False], inplace=True)
                     
-                    # Save to Excel - Create or update the sheet
+                    # Save to Excel with better error handling
                     try:
-                        # Try to read existing workbook
+                        # Method 1: Try using openpyxl directly
                         book = load_workbook(st.session_state.temp_file_path)
                         
                         # Remove existing sheet if it exists
@@ -503,22 +505,80 @@ def main():
                         book.save(st.session_state.temp_file_path)
                         book.close()
                         
+                        st.success("✅ Final confirmations saved using openpyxl!")
+                        
+                    except Exception as e1:
+                        try:
+                            # Method 2: Fallback to pandas ExcelWriter
+                            with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+                                df_result.to_excel(writer, sheet_name='GSTR_Tally_Match', index=False)
+                            
+                            st.success("✅ Final confirmations saved using pandas!")
+                            
+                        except Exception as e2:
+                            try:
+                                # Method 3: Create new file if append fails
+                                # Read existing sheets first
+                                existing_data = {}
+                                try:
+                                    excel_file = pd.ExcelFile(st.session_state.temp_file_path)
+                                    for sheet_name in excel_file.sheet_names:
+                                        if sheet_name == 'Tally':
+                                            existing_data[sheet_name] = pd.read_excel(st.session_state.temp_file_path, sheet_name=sheet_name, header=1)
+                                        else:
+                                            existing_data[sheet_name] = pd.read_excel(st.session_state.temp_file_path, sheet_name=sheet_name, header=1)
+                                except:
+                                    pass
+                                
+                                # Create new file with all sheets
+                                with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl') as writer:
+                                    # Write existing sheets
+                                    for sheet_name, data in existing_data.items():
+                                        if sheet_name == 'Tally':
+                                            # Add empty row for Tally sheet
+                                            empty_row = pd.DataFrame([[''] * len(data.columns)], columns=data.columns)
+                                            empty_row.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                                            data.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1)
+                                        else:
+                                            data.to_excel(writer, sheet_name=sheet_name, index=False)
+                                    
+                                    # Add new matching results sheet
+                                    df_result.to_excel(writer, sheet_name='GSTR_Tally_Match', index=False)
+                                
+                                st.success("✅ Final confirmations saved by recreating file!")
+                                
+                            except Exception as e3:
+                                st.error(f"❌ All save methods failed: {e1}, {e2}, {e3}")
+                                return
+                    
+                    # Verify the sheet was created successfully
+                    try:
+                        # Test read the saved sheet
+                        test_df = pd.read_excel(st.session_state.temp_file_path, sheet_name='GSTR_Tally_Match')
+                        if len(test_df) > 0:
+                            st.success("✅ Sheet verification successful!")
+                            
+                            # Store results in session state as backup
+                            st.session_state.saved_match_results = df_result
+                            
+                            # Show summary
+                            yes_count = sum(1 for conf in st.session_state.manual_confirmations.values() if conf == "Yes")
+                            total_count = len(st.session_state.manual_confirmations)
+                            
+                            st.info(f"📊 Summary: {yes_count} out of {total_count} matches confirmed for replacement")
+                            
+                            # Display final results
+                            st.subheader("📋 Final Matching Results")
+                            st.dataframe(df_result, use_container_width=True)
+                            
+                        else:
+                            st.error("❌ Sheet created but appears to be empty")
+                            
                     except Exception as e:
-                        # Fallback to pandas method
-                        with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                            df_result.to_excel(writer, sheet_name='GSTR_Tally_Match', index=False)
-                    
-                    st.success("✅ Final confirmations saved! You can now proceed to Name Replacement.")
-                    
-                    # Show summary
-                    yes_count = sum(1 for conf in st.session_state.manual_confirmations.values() if conf == "Yes")
-                    total_count = len(st.session_state.manual_confirmations)
-                    
-                    st.info(f"📊 Summary: {yes_count} out of {total_count} matches confirmed for replacement")
-                    
-                    # Display final results
-                    st.subheader("📋 Final Matching Results")
-                    st.dataframe(df_result, use_container_width=True)
+                        st.error(f"❌ Error verifying saved sheet: {e}")
+                        # Store as backup in session state
+                        st.session_state.saved_match_results = df_result
+                        st.warning("⚠️ Results saved in session state as backup")
                 
                 except Exception as e:
                     st.error(f"❌ Error saving confirmations: {e}")
@@ -530,13 +590,26 @@ def main():
         if st.button("🔁 Replace Matched Names", use_container_width=True):
             try:
                 with st.spinner("Processing name replacements..."):
-                    # Read match results
+                    # Try to read match results from file first
+                    df_matches = None
                     try:
                         df_matches = pd.read_excel(st.session_state.temp_file_path, sheet_name='GSTR_Tally_Match')
-                    except:
-                        st.error("❌ Please complete fuzzy matching first and click 'Continue with Selected Confirmations'")
+                        st.success("✅ Match results loaded from Excel sheet")
+                    except Exception as e1:
+                        # Fallback to session state backup
+                        if 'saved_match_results' in st.session_state and st.session_state.saved_match_results is not None:
+                            df_matches = st.session_state.saved_match_results
+                            st.info("✅ Match results loaded from session backup")
+                        else:
+                            st.error("❌ Please complete fuzzy matching first and click 'Continue with Selected Confirmations'")
+                            st.error(f"Debug info: Excel read error: {e1}")
+                            return
+                    
+                    if df_matches is None or len(df_matches) == 0:
+                        st.error("❌ No match results found. Please complete fuzzy matching first.")
                         return
                     
+                    # Read Tally data
                     df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally', header=1)
                     col_supplier = get_column(df_tally, 'Supplier')
                     
