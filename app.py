@@ -580,7 +580,7 @@ def main():
                                 df_tally_grouped['Central Tax'].sum(),
                                 df_gstr_grouped['Central Tax'].sum() - df_tally_grouped['Central Tax'].sum()
                             ],
-                            'State/UT Tax': [
+                            'State/UT tax': [
                                 df_gstr_grouped['State/UT tax'].sum(),
                                 df_tally_grouped['State/UT tax'].sum(),
                                 df_gstr_grouped['State/UT tax'].sum() - df_tally_grouped['State/UT tax'].sum()
@@ -612,11 +612,11 @@ def main():
                                 both_present['Central Tax Variance'].sum(),
                                 df_combined['Central Tax Variance'].sum()
                             ],
-                            'State/UT Tax': [
+                            'State/UT tax': [
                                 not_in_tally['State/UT tax_GSTR'].sum(),
                                 not_in_gstr['State/UT tax_Tally'].sum(),
-                                both_present['State/UT Tax Variance'].sum(),
-                                df_combined['State/UT Tax Variance'].sum()
+                                both_present['State/UT tax Variance'].sum(),
+                                df_combined['State/UT tax Variance'].sum()
                             ]
                         })
                         
