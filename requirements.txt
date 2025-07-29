@@ -2,4 +2,4 @@ streamlit
 pandas
 openpyxl
 fuzzywuzzy
-python-Levenshtein
+python-levenshtein
