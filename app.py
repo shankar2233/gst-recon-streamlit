@@ -1659,7 +1659,7 @@ def show_reconciliation_tool():
         
         st.markdown('</div>', unsafe_allow_html=True)
 def main_with_navigation():
-    """Enhanced main function with vertical list navigation"""
+    """Enhanced main function with button-based vertical navigation"""
     
     # Page configuration
     st.set_page_config(
@@ -1669,58 +1669,68 @@ def main_with_navigation():
         initial_sidebar_state="expanded"
     )
     
-    # Show analytics widget (keep if you want it)
-    # show_analytics_widget()
+    # Hide the default navigation options
+    st.markdown("""
+    <style>
+    div[data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] > div > div > div > ul {
+        display: none !important;
+    }
+    .css-1d391kg {
+        padding-top: 1rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    # Sidebar with vertical navigation list
+    # Sidebar with button navigation
     with st.sidebar:
         st.title("🔍 GST Reconciliation Tool")
         st.markdown("---")
         
-        # Vertical navigation menu using option_menu
-        selected = option_menu(
-            menu_title=None,  # Hide the menu title
-            options=[
-                "🏠 Home",
-                "📄 About", 
-                "🔒 Privacy",
-                "✉️ Contact",
-                "📊 Analytics"  # ADD this option to the list
-            ],
-            icons=['house', 'info-circle', 'shield-lock', 'envelope', 'bar-chart'],  # ADD analytics icon
-            menu_icon="cast",
-            default_index=0,
-            orientation="vertical",  # Vertical list layout
-            styles={
-                "container": {"padding": "0!important", "background-color": "transparent"},
-                "icon": {"color": "#667eea", "font-size": "18px"}, 
-                "nav-link": {
-                    "font-size": "16px", 
-                    "text-align": "left", 
-                    "margin": "0px",
-                    "padding": "10px 15px",
-                    "--hover-color": "#f0f2f6"
-                },
-                "nav-link-selected": {"background-color": "#667eea", "color": "white"},
-            }
-        )
+        # Initialize page state
+        if 'current_page' not in st.session_state:
+            st.session_state.current_page = "home"
+        
+        # Vertical button navigation
+        if st.button("🏠 Home", use_container_width=True, 
+                    type="primary" if st.session_state.current_page == "home" else "secondary"):
+            st.session_state.current_page = "home"
+        
+        if st.button("📄 About", use_container_width=True,
+                    type="primary" if st.session_state.current_page == "about" else "secondary"):
+            st.session_state.current_page = "about"
+            
+        if st.button("🔒 Privacy", use_container_width=True,
+                    type="primary" if st.session_state.current_page == "privacy" else "secondary"):
+            st.session_state.current_page = "privacy"
+            
+        if st.button("✉️ Contact", use_container_width=True,
+                    type="primary" if st.session_state.current_page == "contact" else "secondary"):
+            st.session_state.current_page = "contact"
+            
+        if st.button("📊 Analytics", use_container_width=True,
+                    type="primary" if st.session_state.current_page == "analytics" else "secondary"):
+            st.session_state.current_page = "analytics"
     
-    # Page routing based on simplified names
-    if selected == "🏠 Home":
+    # Page routing
+    if st.session_state.current_page == "home":
         track_page_visit("home")
         show_reconciliation_tool()
-    elif selected == "📄 About":
+    elif st.session_state.current_page == "about":
         track_page_visit("about")
         show_about_page()
-    elif selected == "🔒 Privacy":
+    elif st.session_state.current_page == "privacy":
         track_page_visit("privacy")
         show_privacy_policy()
-    elif selected == "✉️ Contact":
+    elif st.session_state.current_page == "contact":
         track_page_visit("contact")
         show_contact_page()
-    elif selected == "📊 Analytics":  # FIXED: Use 'selected' and match the option name
+    elif st.session_state.current_page == "analytics":
         track_page_visit("analytics")
         show_detailed_analytics()
+
 
 
 
