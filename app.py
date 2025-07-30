@@ -10,6 +10,7 @@ from datetime import datetime
 import io
 import tempfile
 import sys
+from components.analytics_dashboard import show_analytics_widget, show_detailed_analytics, track_page_visit, track_feature_usage
 # Add the current directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
@@ -49,7 +50,7 @@ except ImportError as e:
         st.write("Contact Us page - Import failed")
 
 try:
-    from utils.helpers import apply_custom_css
+    from utils.helper import apply_custom_css
     print("✅ Successfully imported apply_custom_css")
 except ImportError as e:
     print(f"❌ Failed to import apply_custom_css: {e}")
@@ -899,6 +900,7 @@ def show_reconciliation_tool():
             help="Download this template to see the required format",
             use_container_width=True
         )
+        track_feature_usage("exported_template")
         show_info_message("📋 Download this template to see the required Excel format with sample data")
     
     with col3:
@@ -917,7 +919,7 @@ def show_reconciliation_tool():
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             st.session_state.temp_file_path = tmp_file.name
-        
+        track_feature_usage("file_upload")
         show_success_message(f"File uploaded: {uploaded_file.name}")
         
         # Validate sheets
@@ -963,6 +965,7 @@ def show_reconciliation_tool():
         
         if st.button("🚀 Start Matching", use_container_width=True):
             try:
+                start_time = time.time()  # ADD this line
                 with st.spinner("🔄 Processing fuzzy matching..."):
                     # Read data
                     df_tally = pd.read_excel(st.session_state.temp_file_path, sheet_name='Tally', header=1)
@@ -986,7 +989,15 @@ def show_reconciliation_tool():
                     st.session_state.manual_confirmations = {}
                     for i, match in enumerate(matches):
                         st.session_state.manual_confirmations[i] = match[3]  # Default confirmation
-                
+                    # ADD THESE LINES for tracking
+                    processing_time = time.time() - start_time
+                    total_records = len(df_tally) + len(df_gstr)
+
+                    track_feature_usage("reconciliation", {
+                        "processing_time": processing_time,
+                        "records_processed": total_records
+                    })
+
                 show_success_message("Matching completed successfully!")
                 
             except Exception as e:
@@ -1542,9 +1553,11 @@ def show_reconciliation_tool():
                         data=file.read(),
                         file_name=f"Complete_GST_Reconciliation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        
                         use_container_width=True,
                         type="primary"
                     )
+                    track_feature_usage("export_excel")
             except:
                 show_warning_message("⚠️ Complete file not available. Please run at least one process first.")
         
@@ -1646,7 +1659,7 @@ def show_reconciliation_tool():
         st.markdown('</div>', unsafe_allow_html=True)
 
 def main_with_navigation():
-    """Enhanced main function with navigation"""
+    """Enhanced main function with navigation and analytics"""
     
     # Page configuration
     st.set_page_config(
@@ -1656,27 +1669,38 @@ def main_with_navigation():
         initial_sidebar_state="expanded"
     )
     
+    # Show analytics widget in top-right corner
+    show_analytics_widget()
+    
     # Sidebar navigation
     st.sidebar.title("🔍 GST Reconciliation Tool")
     st.sidebar.markdown("---")
     
-    # Navigation menu
     page = st.sidebar.selectbox("📋 Navigate to:", [
         "🏠 Home - Reconciliation Tool",
         "📄 About Us", 
         "🔒 Privacy Policy",
-        "✉️ Contact Us"
+        "✉️ Contact Us",
+        "📊 Analytics Dashboard"  # ADD this new menu item
     ])
-    
-    # Page routing
+
+    # Page routing with analytics tracking
     if page == "🏠 Home - Reconciliation Tool":
+        track_page_visit("home")  # ADD this line
         show_reconciliation_tool()
     elif page == "📄 About Us":
+        track_page_visit("about")  # ADD this line
         show_about_page()
     elif page == "🔒 Privacy Policy":
+        track_page_visit("privacy")  # ADD this line
         show_privacy_policy()
     elif page == "✉️ Contact Us":
+        track_page_visit("contact")  # ADD this line
         show_contact_page()
+    elif page == "📊 Analytics Dashboard":  # ADD this entire elif block
+        track_page_visit("analytics")
+        show_detailed_analytics()
+
 
 
 def create_required_files():
