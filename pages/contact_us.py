@@ -10,6 +10,7 @@ def show_contact_page():
     /* Global Styles */
     * {
         font-family: 'Poppins', sans-serif;
+        color: black !important;
     }
 
     /* Prevent long links/emails from overflowing */
@@ -20,9 +21,9 @@ def show_contact_page():
         white-space: normal;
     }
 
-    /* Animated Background */
+    /* Animated Background - Made lighter for black text */
     .contact-container {
-        background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+        background: linear-gradient(-45deg, #e3f2fd, #f3e5f5, #fff3e0, #fce4ec);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
         padding: 2rem;
@@ -49,7 +50,7 @@ def show_contact_page():
         background-clip: text;
         animation: gradientText 3s ease infinite, bounceIn 1s ease;
         margin-bottom: 0.5em;
-        text-shadow: 0 0 30px rgba(255,255,255,0.5);
+        text-shadow: 0 0 30px rgba(0,0,0,0.3);
     }
     @keyframes gradientText {
         0%, 100% { background-position: 0% 50%; }
@@ -66,19 +67,20 @@ def show_contact_page():
     .typewriter {
         text-align: center;
         font-size: 1.3em;
-        color: #fff;
+        color: black !important;
         margin-bottom: 2.5em;
         animation: fadeInUp 1.5s ease;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        text-shadow: 0 2px 10px rgba(255,255,255,0.8);
+        font-weight: 600;
     }
 
-    /* Contact Card Styles */
+    /* Contact Card Styles - Made lighter backgrounds */
     .contact-card {
         max-width: 400px;
         margin: 1em auto;
-        background: rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.9);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
+        border: 1px solid rgba(0,0,0,0.1);
         border-radius: 20px;
         padding: 2em;
         box-shadow:
@@ -103,7 +105,7 @@ def show_contact_page():
         position: absolute;
         top: 0; left: -100%;
         width: 100%; height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        background: linear-gradient(90deg, transparent, rgba(0,0,0,0.05), transparent);
         transition: left 0.5s ease;
     }
     .contact-card:hover::before { left: 100%; }
@@ -118,9 +120,9 @@ def show_contact_page():
     .card-header {
         font-size: 1.8em;
         font-weight: 700;
-        color: #fff;
+        color: black !important;
         margin-bottom: 1em;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        text-shadow: 0 2px 10px rgba(255,255,255,0.8);
         position: relative;
     }
     .card-header::after {
@@ -136,20 +138,24 @@ def show_contact_page():
 
     /* Contact Info */
     .contact-info {
-        color: #fff;
+        color: black !important;
         font-size: 1.1em;
         line-height: 1.8;
-        text-shadow: 0 1px 5px rgba(0,0,0,0.3);
+        text-shadow: 0 1px 5px rgba(255,255,255,0.8);
     }
-    .contact-info strong { color: #ffeb3b; font-weight: 600; }
+    .contact-info strong { 
+        color: #d32f2f !important; 
+        font-weight: 600; 
+    }
     .contact-info a { 
         text-decoration: none; 
         transition: all 0.3s ease;
-        color: #4ecdc4;
+        color: #1976d2 !important;
+        font-weight: 500;
     }
     .contact-info a:hover {
-        color: #fff;
-        text-shadow: 0 0 10px #4ecdc4;
+        color: #0d47a1 !important;
+        text-shadow: 0 0 10px rgba(25,118,210,0.3);
         transform: scale(1.05);
     }
 
@@ -160,7 +166,7 @@ def show_contact_page():
         margin: 0;
     }
     .support-list li {
-        background: rgba(255,255,255,0.1);
+        background: rgba(245,245,245,0.8);
         margin: 0.5em 0;
         padding: 0.8em 1.2em;
         border-radius: 10px;
@@ -169,6 +175,10 @@ def show_contact_page():
         animation: slideInRight 0.8s ease forwards;
         transform: translateX(50px);
         opacity: 0;
+        color: black !important;
+    }
+    .support-list li strong {
+        color: #1976d2 !important;
     }
     .support-list li:nth-child(1) { animation-delay: 0.6s; }
     .support-list li:nth-child(2) { animation-delay: 0.8s; }
@@ -177,7 +187,7 @@ def show_contact_page():
         to { transform: translateX(0); opacity: 1; }
     }
     .support-list li:hover {
-        background: rgba(255,255,255,0.2);
+        background: rgba(230,230,230,0.9);
         transform: translateX(5px);
         border-left-color: #ff6b6b;
     }
@@ -261,7 +271,7 @@ def show_contact_page():
                 <ul class="support-list">
                     <li><strong>Monday – Friday:</strong> 9:00 AM – 6:00 PM (IST)</li>
                     <li><strong>Saturday:</strong> 10:00 AM – 4:00 PM (IST)</li>
-                    <li><strong>Sunday:</strong> <span style="color:#ff6b6b;"><strong>Closed</strong></span></li>
+                    <li><strong>Sunday:</strong> <span style="color:#d32f2f;"><strong>Closed</strong></span></li>
                 </ul>
             </div>
         </div>
