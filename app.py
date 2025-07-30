@@ -10,219 +10,33 @@ from datetime import datetime
 import io
 import tempfile
 
-# --- Custom CSS for Animations and Styling ---
+# --- Enhanced Custom CSS for Modern UI ---
 def apply_custom_css():
     st.markdown("""
     <style>
-    /* Import Cambria font */
-    @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&display=swap');
+    /* Import modern font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
-    /* Global font and size settings */
+    /* Global styles */
     .stApp {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-    }
-    
-    /* Main title animation */
-    .main-title {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 48px !important;
-        font-weight: 700 !important;
-        text-align: center;
-        background: linear-gradient(45deg, #FF6B6B, #4ECDC4, #45B7D1, #96CEB4);
-        background-size: 400% 400%;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: gradientShift 3s ease-in-out infinite;
-        margin-bottom: 30px;
-    }
-    
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    
-    /* Subtitle animation */
-    .subtitle {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 24px !important;
-        text-align: center;
-        color: #666;
-        animation: fadeInUp 1s ease-out;
-        margin-bottom: 40px;
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* Button animations */
-    .stButton > button {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-        font-weight: 600 !important;
-        border-radius: 15px !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        border: none !important;
-        color: white !important;
+        min-height: 100vh;
     }
     
-    .stButton > button:hover {
-        transform: translateY(-3px) scale(1.05) !important;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+    /* Main container with glass effect */
+    .main .block-container {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 20px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important;
+        padding: 2rem !important;
+        margin: 1rem !important;
+        animation: slideInFromTop 0.8s ease-out !important;
     }
     
-    .stButton > button:active {
-        transform: translateY(-1px) scale(1.02) !important;
-    }
-    
-    /* Primary button special styling */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%) !important;
-        animation: pulse 2s infinite !important;
-    }
-    
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
-    }
-    
-    /* Success message animation */
-    .success-message {
-        animation: bounceIn 0.8s ease-out;
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-    }
-    
-    @keyframes bounceIn {
-        0% {
-            opacity: 0;
-            transform: scale(0.3);
-        }
-        50% {
-            opacity: 1;
-            transform: scale(1.05);
-        }
-        70% {
-            transform: scale(0.9);
-        }
-        100% {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
-    
-    /* Info message animation */
-    .info-message {
-        animation: slideInLeft 0.6s ease-out;
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-    }
-    
-    @keyframes slideInLeft {
-        from {
-            opacity: 0;
-            transform: translateX(-100px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    /* Error message animation */
-    .error-message {
-        animation: shake 0.6s ease-in-out;
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-    }
-    
-    @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
-        20%, 40%, 60%, 80% { transform: translateX(10px); }
-    }
-    
-    /* Progress bar animation */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #FF6B6B, #4ECDC4, #45B7D1) !important;
-        animation: progressFlow 2s linear infinite !important;
-    }
-    
-    @keyframes progressFlow {
-        0% { background-position: 0% 50%; }
-        100% { background-position: 100% 50%; }
-    }
-    
-    /* Tab animation */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 20px !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-        border-radius: 10px !important;
-        padding: 15px 25px !important;
-    }
-    
-    .stTabs [data-baseweb="tab"]:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    }
-    
-    /* File uploader animation */
-    .stFileUploader {
-        animation: fadeIn 1s ease-out;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    
-    /* Dataframe animation */
-    .stDataFrame {
-        animation: slideInUp 0.8s ease-out;
-    }
-    
-    @keyframes slideInUp {
-        from {
-            opacity: 0;
-            transform: translateY(50px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* Header animations */
-    h1, h2, h3 {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-weight: 700 !important;
-        animation: fadeInDown 0.8s ease-out;
-    }
-    
-    h1 { font-size: 36px !important; }
-    h2 { font-size: 28px !important; }
-    h3 { font-size: 22px !important; }
-    
-    @keyframes fadeInDown {
+    @keyframes slideInFromTop {
         from {
             opacity: 0;
             transform: translateY(-30px);
@@ -233,121 +47,38 @@ def apply_custom_css():
         }
     }
     
-    /* Text and labels */
-    p, div, span, label {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
+    /* Modern title with gradient */
+    .main-title {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 3.5rem !important;
+        font-weight: 700 !important;
+        text-align: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+        background-size: 200% 200% !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        animation: gradientFlow 4s ease-in-out infinite !important;
+        margin-bottom: 1rem !important;
+        letter-spacing: -2px !important;
     }
     
-    /* Spinner animation enhancement */
-    .stSpinner {
-        animation: spin 1s linear infinite, glow 2s ease-in-out infinite alternate;
+    @keyframes gradientFlow {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
     }
     
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    /* Subtle subtitle */
+    .subtitle {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 1.2rem !important;
+        font-weight: 400 !important;
+        text-align: center;
+        color: #64748b !important;
+        margin-bottom: 2rem !important;
+        animation: fadeInUp 1s ease-out 0.3s both !important;
     }
     
-    @keyframes glow {
-        from { box-shadow: 0 0 5px #4ECDC4; }
-        to { box-shadow: 0 0 20px #4ECDC4, 0 0 30px #4ECDC4; }
-    }
-    
-    /* Form container animation */
-    .stForm {
-        animation: zoomIn 0.6s ease-out;
-        border-radius: 15px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important;
-    }
-    
-    @keyframes zoomIn {
-        from {
-            opacity: 0;
-            transform: scale(0.8);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
-    
-    /* Expander animation */
-    .streamlit-expanderHeader {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 20px !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .streamlit-expanderHeader:hover {
-        transform: scale(1.02) !important;
-    }
-    
-    /* Number input animation */
-    .stNumberInput input {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-        transition: all 0.3s ease !important;
-        border-radius: 10px !important;
-    }
-    
-    .stNumberInput input:focus {
-        transform: scale(1.05) !important;
-        box-shadow: 0 0 15px rgba(102, 126, 234, 0.3) !important;
-    }
-    
-    /* Selectbox animation */
-    .stSelectbox > div > div {
-        font-family: 'Crimson Text', 'Cambria', serif !important;
-        font-size: 18px !important;
-        transition: all 0.3s ease !important;
-        border-radius: 10px !important;
-    }
-    
-    /* Loading animation for containers */
-    .loading-container {
-        animation: fadeInOut 2s ease-in-out infinite;
-    }
-    
-    @keyframes fadeInOut {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 1; }
-    }
-    
-    /* Special effects for completion */
-    .completion-celebration {
-        animation: celebrate 1s ease-out;
-    }
-    
-    @keyframes celebrate {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1) rotate(5deg); }
-        100% { transform: scale(1) rotate(0deg); }
-    }
-    
-    /* Sidebar animations */
-    .css-1d391kg {
-        animation: slideInRight 0.8s ease-out;
-    }
-    
-    @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(100px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    
-    /* Column container animations */
-    .element-container {
-        animation: staggerIn 0.6s ease-out;
-    }
-    
-    @keyframes staggerIn {
+    @keyframes fadeInUp {
         from {
             opacity: 0;
             transform: translateY(20px);
@@ -355,6 +86,350 @@ def apply_custom_css():
         to {
             opacity: 1;
             transform: translateY(0);
+        }
+    }
+    
+    /* Modern button styles */
+    .stButton > button {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1.5rem !important;
+        border: none !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transform: translateY(0) !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+    }
+    
+    .stButton > button:active {
+        transform: translateY(0) !important;
+        transition: transform 0.1s !important;
+    }
+    
+    /* Primary button special styling */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3) !important;
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%) !important;
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
+    }
+    
+    /* Success messages with modern styling */
+    .success-message {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 12px !important;
+        margin: 1rem 0 !important;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2) !important;
+        animation: slideInLeft 0.5s ease-out !important;
+        border-left: 4px solid #065f46 !important;
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Info messages */
+    .info-message {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 12px !important;
+        margin: 1rem 0 !important;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2) !important;
+        animation: slideInRight 0.5s ease-out !important;
+        border-left: 4px solid #1e40af !important;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Error messages */
+    .error-message {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        color: white !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 12px !important;
+        margin: 1rem 0 !important;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2) !important;
+        animation: shake 0.5s ease-in-out !important;
+        border-left: 4px solid #b91c1c !important;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
+    /* Warning messages */
+    .warning-message {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: white !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 12px !important;
+        margin: 1rem 0 !important;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2) !important;
+        animation: slideInUp 0.5s ease-out !important;
+        border-left: 4px solid #b45309 !important;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Modern progress bar */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6) !important;
+        border-radius: 8px !important;
+        animation: progressGlow 2s ease-in-out infinite alternate !important;
+    }
+    
+    @keyframes progressGlow {
+        from { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+        to { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+    }
+    
+    /* Modern tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+        background: rgba(248, 250, 252, 0.8) !important;
+        padding: 0.5rem !important;
+        border-radius: 12px !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        padding: 0.75rem 1.5rem !important;
+        border-radius: 8px !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(255, 255, 255, 0.7) !important;
+        transform: translateY(-1px) !important;
+    }
+    
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: white !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        color: #667eea !important;
+    }
+    
+    /* Modern dataframe styling */
+    .stDataFrame {
+        animation: fadeInScale 0.6s ease-out !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    @keyframes fadeInScale {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    /* Modern headers */
+    h1, h2, h3 {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        animation: fadeInDown 0.6s ease-out !important;
+    }
+    
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Form containers */
+    .stForm {
+        background: rgba(255, 255, 255, 0.8) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+        animation: slideInScale 0.6s ease-out !important;
+    }
+    
+    @keyframes slideInScale {
+        from {
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+    
+    /* Input fields */
+    .stNumberInput input, .stSelectbox > div > div {
+        border-radius: 8px !important;
+        border: 2px solid #e2e8f0 !important;
+        transition: all 0.3s ease !important;
+        font-family: 'Inter', sans-serif !important;
+    }
+    
+    .stNumberInput input:focus, .stSelectbox > div > div:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        outline: none !important;
+    }
+    
+    /* File uploader */
+    .stFileUploader {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-radius: 12px !important;
+        border: 2px dashed #cbd5e1 !important;
+        padding: 2rem !important;
+        transition: all 0.3s ease !important;
+        animation: fadeIn 0.8s ease-out !important;
+    }
+    
+    .stFileUploader:hover {
+        border-color: #667eea !important;
+        background: rgba(102, 126, 234, 0.05) !important;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: rgba(102, 126, 234, 0.1) !important;
+        transform: translateX(5px) !important;
+    }
+    
+    /* Spinner enhancement */
+    .stSpinner {
+        animation: modernSpin 1s linear infinite !important;
+    }
+    
+    @keyframes modernSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Status cards */
+    .status-card {
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        margin: 0.5rem 0 !important;
+        border-left: 4px solid #10b981 !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+        transition: all 0.3s ease !important;
+        animation: slideInUp 0.5s ease-out !important;
+    }
+    
+    .status-card:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    /* Celebration animation */
+    .celebration {
+        animation: celebrate 1.5s ease-in-out !important;
+    }
+    
+    @keyframes celebrate {
+        0%, 100% { transform: scale(1); }
+        25% { transform: scale(1.05) rotate(1deg); }
+        50% { transform: scale(1.1) rotate(-1deg); }
+        75% { transform: scale(1.05) rotate(1deg); }
+    }
+    
+    /* Results container */
+    .results-container {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(15px) !important;
+        border-radius: 16px !important;
+        padding: 2rem !important;
+        margin: 1rem 0 !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        animation: slideInUp 0.8s ease-out !important;
+    }
+    
+    /* Column headers */
+    .column-header {
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .main-title {
+            font-size: 2.5rem !important;
+        }
+        
+        .main .block-container {
+            margin: 0.5rem !important;
+            padding: 1rem !important;
         }
     }
     </style>
@@ -369,6 +444,9 @@ def show_info_message(message):
 
 def show_error_message(message):
     st.markdown(f'<div class="error-message">❌ {message}</div>', unsafe_allow_html=True)
+
+def show_warning_message(message):
+    st.markdown(f'<div class="warning-message">⚠️ {message}</div>', unsafe_allow_html=True)
 
 # --- Enhanced Progress Bar ---
 def create_animated_progress_bar():
@@ -460,9 +538,9 @@ def create_default_format():
     return output.getvalue()
 
 def show_help_instructions():
-    """Enhanced help instructions with animations"""
+    """Enhanced help instructions"""
     st.markdown("""
-    <div class="info-message">
+    <div class="results-container">
     
     ## 🔄 GST Reconciliation Help Guide
 
@@ -542,7 +620,7 @@ def two_way_match(tally_list, gstr_list, threshold):
         progress = (i + 1) / total_steps
         progress_bar.progress(progress)
         status_text.markdown(f'<div class="info-message">🔍 GSTR → Tally: {i+1}/{len(gstr_keys)}</div>', unsafe_allow_html=True)
-        time.sleep(0.01)  # Small delay for smooth animation
+        time.sleep(0.01)
     
     # Tally to GSTR matching
     for i, tally_name in enumerate(tally_keys):
@@ -564,7 +642,7 @@ def two_way_match(tally_list, gstr_list, threshold):
         progress = (len(gstr_keys) + i + 1) / total_steps
         progress_bar.progress(progress)
         status_text.markdown(f'<div class="info-message">🔍 Tally → GSTR: {i+1}/{len(tally_keys)}</div>', unsafe_allow_html=True)
-        time.sleep(0.01)  # Small delay for smooth animation
+        time.sleep(0.01)
     
     # Complete progress
     progress_bar.progress(1.0)
@@ -584,6 +662,17 @@ def two_way_match(tally_list, gstr_list, threshold):
     
     return results
 
+# --- Enhanced Display Functions ---
+def display_dataframe_with_title(df, title, description=""):
+    """Display dataframe with modern styling"""
+    st.markdown(f"""
+    <div class="results-container">
+        <h3 class="column-header">{title}</h3>
+        {f'<p style="color: #64748b; margin-bottom: 1rem;">{description}</p>' if description else ''}
+    </div>
+    """, unsafe_allow_html=True)
+    st.dataframe(df, use_container_width=True)
+
 # --- Enhanced Streamlit App ---
 def main():
     # Apply custom CSS first
@@ -597,7 +686,7 @@ def main():
     
     # Animated title
     st.markdown('<h1 class="main-title">🔄 GSTR vs Tally Match + GST Reconciliation</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">**Fuzzy Match GSTR-2A/2B vs Books and Perform GST Reconciliation**</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Modern Fuzzy Match GSTR-2A/2B vs Books and Perform GST Reconciliation</div>', unsafe_allow_html=True)
     
     # Initialize session state
     if 'uploaded_file' not in st.session_state:
@@ -614,19 +703,25 @@ def main():
         st.session_state.all_processes_completed = False
     if 'saved_match_results' not in st.session_state:
         st.session_state.saved_match_results = None
+    if 'name_replacement_done' not in st.session_state:
+        st.session_state.name_replacement_done = False
+    if 'gst_reconciliation_done' not in st.session_state:
+        st.session_state.gst_reconciliation_done = False
+    if 'invoice_reconciliation_done' not in st.session_state:
+        st.session_state.invoice_reconciliation_done = False
 
     # Top section with file upload and help
     col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        st.header("📂 Upload Excel File")
+        st.markdown('<h3 class="column-header">📂 Upload Excel File</h3>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "Choose an Excel file with 'Tally' and 'GSTR-2A' sheets",
             type=['xlsx', 'xls']
         )
     
     with col2:
-        st.header("📥 Default Format")
+        st.markdown('<h3 class="column-header">📥 Default Format</h3>', unsafe_allow_html=True)
         st.download_button(
             label="📥 Download Template",
             data=create_default_format(),
@@ -638,7 +733,7 @@ def main():
         show_info_message("📋 Download this template to see the required Excel format with sample data")
     
     with col3:
-        st.header("❓ Help")
+        st.markdown('<h3 class="column-header">❓ Help</h3>', unsafe_allow_html=True)
         if st.button("❓ Show Instructions", use_container_width=True):
             st.session_state.show_help = not st.session_state.get('show_help', False)
     
@@ -683,6 +778,7 @@ def main():
     ])
 
     with tab1:
+        st.markdown('<div class="results-container">', unsafe_allow_html=True)
         st.header("🚀 Start Fuzzy Matching")
         
         col1, col2 = st.columns([1, 2])
@@ -882,13 +978,13 @@ def main():
                             book.save(st.session_state.temp_file_path)
                             book.close()
                             
-                            show_success_message("Final confirmations saved using openpyxl!")
+                            show_success_message("Final confirmations saved successfully!")
                             
                         except Exception as e1:
                             try:
                                 with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                                     df_result.to_excel(writer, sheet_name='GSTR_Tally_Match', index=False)
-                                show_success_message("Final confirmations saved using pandas!")
+                                show_success_message("Final confirmations saved successfully!")
                             except Exception as e2:
                                 show_error_message(f"Save failed: {e1}, {e2}")
                                 return
@@ -898,18 +994,21 @@ def main():
                         yes_count = sum(1 for conf in st.session_state.manual_confirmations.values() if conf == "Yes")
                         total_count = len(st.session_state.manual_confirmations)
                         
-                        st.markdown('<div class="completion-celebration">', unsafe_allow_html=True)
+                        st.markdown('<div class="celebration">', unsafe_allow_html=True)
                         show_info_message(f"📊 Summary: {yes_count} out of {total_count} matches confirmed for replacement")
                         st.markdown('</div>', unsafe_allow_html=True)
                         
                         # Display final results with animation
-                        st.subheader("📋 Final Matching Results")
-                        st.dataframe(df_result, use_container_width=True)
+                        display_dataframe_with_title(df_result, "📋 Final Matching Results", 
+                                                   "These matches will be used for name replacement")
                         
                 except Exception as e:
                     show_error_message(f"Error saving confirmations: {e}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab2:
+        st.markdown('<div class="results-container">', unsafe_allow_html=True)
         st.header("🔁 Name Replacement")
         show_info_message("💡 First complete fuzzy matching, then use this to replace Tally names with GSTR names")
         
@@ -974,16 +1073,20 @@ def main():
                     with pd.ExcelWriter(st.session_state.temp_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                         df_new.to_excel(writer, sheet_name='Tally_Replaced', index=False, header=True)
 
+                    st.session_state.name_replacement_done = True
                     show_success_message(f"Replaced {replacement_count} supplier names successfully!")
 
                     # Show preview with animation
-                    st.subheader("📋 Preview of Replaced Data")
-                    st.dataframe(df_new.head(), use_container_width=True)
+                    display_dataframe_with_title(df_new.head(10), "📋 Preview of Replaced Data", 
+                                               "Showing first 10 rows of the replaced data")
 
             except Exception as e:
                 show_error_message(f"Error during replacement: {e}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab3:
+        st.markdown('<div class="results-container">', unsafe_allow_html=True)
         st.header("📊 GST Reconciliation")
         
         if st.button("📊 Run GST Reconciliation", use_container_width=True):
@@ -1139,20 +1242,29 @@ def main():
                     progress_bar.empty()
                     status.empty()
                     
+                    st.session_state.gst_reconciliation_done = True
                     show_success_message(f"GST Reconciliation completed using {tally_sheet_used}!")
 
-                    # Display summary with animation
-                    st.subheader("📊 GST Input Summary")
-                    st.dataframe(df_summary, use_container_width=True)
+                    # Display all results with modern styling
+                    display_dataframe_with_title(df_summary, "📊 GST Input Summary", 
+                                               "Overall comparison between GSTR-2A and Tally data")
 
-                    # Display detailed comparison
-                    st.subheader("📋 Detailed Comparison")
-                    st.dataframe(df_combined, use_container_width=True)
+                    display_dataframe_with_title(df_combined, "📋 Detailed Comparison (T_vs_G-2A)", 
+                                               "Party-wise detailed variance analysis")
+
+                    display_dataframe_with_title(not_in_tally, "🚫 Not in Tally but in GSTR (N_I_T_B_I_G)", 
+                                               "Parties present in GSTR-2A but missing in Tally")
+
+                    display_dataframe_with_title(not_in_gstr, "🚫 Not in GSTR but in Tally (N_I_G_B_I_T)", 
+                                               "Parties present in Tally but missing in GSTR-2A")
 
             except Exception as e:
                 show_error_message(f"Error during reconciliation: {e}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab4:
+        st.markdown('<div class="results-container">', unsafe_allow_html=True)
         st.header("🧾 Invoice-wise Reconciliation")
         
         if st.button("🧾 Run Invoice Reconciliation", use_container_width=True):
@@ -1224,30 +1336,34 @@ def main():
                     progress_bar.empty()
                     status.empty()
                     
+                    st.session_state.invoice_reconciliation_done = True
                     show_success_message(f"Invoice-wise reconciliation completed using {tally_sheet_used}!")
 
                     # Mark all processes as completed
                     st.session_state.all_processes_completed = True
 
                     # Display results with animation
-                    st.subheader("📋 Invoice-wise Reconciliation Results")
-                    st.dataframe(df_combined, use_container_width=True)
+                    display_dataframe_with_title(df_combined, "📋 Invoice-wise Reconciliation Results", 
+                                               "Detailed invoice-wise comparison with variances")
 
             except Exception as e:
                 show_error_message(f"Error during invoice reconciliation: {e}")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Enhanced Final Download Section
+    # Enhanced Final Download Section with Process Status
     if (st.session_state.matching_completed or
         st.session_state.get('temp_file_path') and
         os.path.exists(st.session_state.temp_file_path)):
         
         st.markdown("---")
-        st.header("📦 Final Downloads")
+        st.markdown('<div class="results-container">', unsafe_allow_html=True)
+        st.header("📦 Final Downloads & Process Status")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("📥 Complete Reconciliation Report")
+            st.markdown('<h3 class="column-header">📥 Complete Reconciliation Report</h3>', unsafe_allow_html=True)
             show_info_message("📋 Download the complete Excel file with all sheets and analysis results")
             
             try:
@@ -1261,41 +1377,104 @@ def main():
                         type="primary"
                     )
             except:
-                st.warning("⚠️ Complete file not available. Please run at least one process first.")
+                show_warning_message("⚠️ Complete file not available. Please run at least one process first.")
         
         with col2:
-            st.subheader("📊 Process Status")
+            st.markdown('<h3 class="column-header">📊 Process Status</h3>', unsafe_allow_html=True)
             
             try:
                 excel_file = pd.ExcelFile(st.session_state.temp_file_path)
                 available_sheets = excel_file.sheet_names
                 
-                process_status = {
-                    "🚀 Fuzzy Matching": "✅ Completed" if 'GSTR_Tally_Match' in available_sheets else "❌ Not Done",
-                    "🔁 Name Replacement": "✅ Completed" if 'Tally_Replaced' in available_sheets else "❌ Not Done",
-                    "📊 GST Reconciliation": "✅ Completed" if 'GST_Input_Summary' in available_sheets else "❌ Not Done",
-                    "🧾 Invoice Reconciliation": "✅ Completed" if 'Invoice_Recon' in available_sheets else "❌ Not Done"
-                }
+                # Enhanced process status with persistent tracking
+                process_status = [
+                    {
+                        "name": "🚀 Fuzzy Matching",
+                        "sheet": "GSTR_Tally_Match",
+                        "session_var": "matching_completed",
+                        "description": "Supplier name matching completed"
+                    },
+                    {
+                        "name": "🔁 Name Replacement", 
+                        "sheet": "Tally_Replaced",
+                        "session_var": "name_replacement_done",
+                        "description": "Tally names replaced with GSTR names"
+                    },
+                    {
+                        "name": "📊 GST Reconciliation",
+                        "sheet": "GST_Input_Summary",
+                        "session_var": "gst_reconciliation_done", 
+                        "description": "GST amounts reconciled and analyzed"
+                    },
+                    {
+                        "name": "🧾 Invoice Reconciliation",
+                        "sheet": "Invoice_Recon",
+                        "session_var": "invoice_reconciliation_done",
+                        "description": "Invoice-wise comparison completed"
+                    }
+                ]
                 
-                for process, status in process_status.items():
-                    if "✅" in status:
-                        st.markdown(f'<div class="success-message">{process}: {status}</div>', unsafe_allow_html=True)
+                completed_count = 0
+                
+                for process in process_status:
+                    sheet_exists = process["sheet"] in available_sheets
+                    session_completed = st.session_state.get(process["session_var"], False)
+                    
+                    if sheet_exists or session_completed:
+                        st.markdown(f'''
+                        <div class="status-card">
+                            <strong>{process["name"]}: ✅ Completed</strong><br>
+                            <small style="color: #64748b;">{process["description"]}</small>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        completed_count += 1
+                        
+                        # Update session state based on sheet existence
+                        if sheet_exists:
+                            st.session_state[process["session_var"]] = True
                     else:
-                        st.write(f"{process}: {status}")
+                        st.markdown(f'''
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 1rem; margin: 0.5rem 0; border-radius: 8px;">
+                            <strong>{process["name"]}: ❌ Not Done</strong><br>
+                            <small style="color: #64748b;">{process["description"]}</small>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                
+                # Show completion percentage
+                completion_percentage = (completed_count / len(process_status)) * 100
+                st.markdown(f'''
+                <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: white; padding: 1rem; border-radius: 12px; text-align: center; margin: 1rem 0;">
+                    <strong>Overall Progress: {completion_percentage:.0f}% Complete</strong><br>
+                    <small>{completed_count} out of {len(process_status)} processes completed</small>
+                </div>
+                ''', unsafe_allow_html=True)
                 
                 # Show available sheets
-                st.write("**📂 Available Sheets:**")
-                for sheet in available_sheets:
-                    st.write(f"• {sheet}")
+                st.markdown('<h4 style="margin-top: 2rem;">📂 Available Sheets in Excel:</h4>', unsafe_allow_html=True)
+                for i, sheet in enumerate(available_sheets, 1):
+                    st.markdown(f'''
+                    <div style="background: rgba(255, 255, 255, 0.9); padding: 0.5rem 1rem; margin: 0.25rem 0; border-radius: 8px; border-left: 3px solid #10b981;">
+                        <strong>{i}. {sheet}</strong>
+                    </div>
+                    ''', unsafe_allow_html=True)
                     
             except Exception as e:
                 show_error_message(f"Error checking file status: {e}")
 
         # Celebration animation if all processes completed
-        if st.session_state.all_processes_completed:
-            st.markdown('<div class="completion-celebration">', unsafe_allow_html=True)
-            show_success_message("🎉 All reconciliation processes completed successfully! You can now download the complete report.")
-            st.markdown('</div>', unsafe_allow_html=True)
+        if completed_count == 4:  # All 4 processes completed
+            st.session_state.all_processes_completed = True
+            st.markdown('''
+            <div class="celebration" style="text-align: center; margin: 2rem 0;">
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);">
+                    <h2 style="margin: 0; font-size: 2rem;">🎉 Congratulations! 🎉</h2>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 1.2rem;">All reconciliation processes completed successfully!</p>
+                    <p style="margin: 0.5rem 0 0 0;">You can now download the complete report with all analysis results.</p>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
