@@ -9,6 +9,27 @@ import os
 from datetime import datetime
 import io
 import tempfile
+import sys
+# Add the current directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
+# Import the page modules (will work after you create the files)
+try:
+    from pages.about_us import show_about_page
+    from pages.privacy_policy import show_privacy_policy
+    from pages.contact_us import show_contact_page
+    from utils.helpers import apply_custom_css as custom_css
+except ImportError:
+    # Fallback if files don't exist yet
+    def show_about_page():
+        st.write("About Us page - Create pages/about_us.py file")
+    def show_privacy_policy():
+        st.write("Privacy Policy page - Create pages/privacy_policy.py file")
+    def show_contact_page():
+        st.write("Contact Us page - Create pages/contact_us.py file")
+    def custom_css():
+        pass
 
 # --- Enhanced Custom CSS for Modern UI ---
 def apply_custom_css():
@@ -795,7 +816,7 @@ def display_dataframe_with_title(df, title, description=""):
     st.dataframe(df, use_container_width=True)
 
 # --- Enhanced Streamlit App ---
-def main():
+def show_reconciliation_tool():
     # Apply custom CSS first
     apply_custom_css()
     
@@ -805,10 +826,12 @@ def main():
         layout="wide"
     )
     
-    # Animated title
-    st.markdown('<h1 class="main-title">🔄 GSTR vs Tally Match + GST Reconciliation</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Modern Fuzzy Match GSTR-2A/2B vs Books and Perform GST Reconciliation</div>', unsafe_allow_html=True)
-    
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔍 GST Reconciliation Tool</h1>
+        <p>Advanced AI-powered reconciliation between Tally and GSTR-2A data</p>
+    </div>
+    """, unsafe_allow_html=True)
     # Initialize session state
     if 'uploaded_file' not in st.session_state:
         st.session_state.uploaded_file = None
@@ -1597,5 +1620,53 @@ def main():
         
         st.markdown('</div>', unsafe_allow_html=True)
 
+def main_with_navigation():
+    """Enhanced main function with navigation"""
+    
+    # Page configuration
+    st.set_page_config(
+        page_title="GST Reconciliation Tool",
+        page_icon="🔍",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Sidebar navigation
+    st.sidebar.title("🔍 GST Reconciliation Tool")
+    st.sidebar.markdown("---")
+    
+    # Navigation menu
+    page = st.sidebar.selectbox("📋 Navigate to:", [
+        "🏠 Home - Reconciliation Tool",
+        "📄 About Us", 
+        "🔒 Privacy Policy",
+        "✉️ Contact Us"
+    ])
+    
+    # Page routing
+    if page == "🏠 Home - Reconciliation Tool":
+        show_reconciliation_tool()
+    elif page == "📄 About Us":
+        show_about_page()
+    elif page == "🔒 Privacy Policy":
+        show_privacy_policy()
+    elif page == "✉️ Contact Us":
+        show_contact_page()
+
+def create_required_files():
+    """Create required directories and files"""
+    pages_dir = os.path.join(current_dir, 'pages')
+    utils_dir = os.path.join(current_dir, 'utils')
+    
+    os.makedirs(pages_dir, exist_ok=True)
+    os.makedirs(utils_dir, exist_ok=True)
+    
+    for directory in [pages_dir, utils_dir]:
+        init_file = os.path.join(directory, '__init__.py')
+        if not os.path.exists(init_file):
+            with open(init_file, 'w') as f:
+                f.write("# This file makes the directory a Python package\n")
+
 if __name__ == "__main__":
-    main()
+    create_required_files()
+    main_with_navigation()
