@@ -14,24 +14,47 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
-# Import the page modules
+# Add current directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
+# Debug information
+print(f"Current directory: {current_dir}")
+print(f"Pages folder exists: {os.path.exists(os.path.join(current_dir, 'pages'))}")
+print(f"Utils folder exists: {os.path.exists(os.path.join(current_dir, 'utils'))}")
+print(f"helpers.py exists: {os.path.exists(os.path.join(current_dir, 'utils', 'helpers.py'))}")
+
 try:
     from pages.about_us import show_about_page
-    from pages.privacy_policy import show_privacy_policy
-    from pages.contact_us import show_contact_page
-    from utils.helpers import apply_custom_css as custom_css
+    print("✅ Successfully imported show_about_page")
 except ImportError as e:
-    st.error(f"Import error: {e}")
-    # Fallback functions
+    print(f"❌ Failed to import show_about_page: {e}")
     def show_about_page():
         st.write("About Us page - Import failed")
+
+try:
+    from pages.privacy_policy import show_privacy_policy
+    print("✅ Successfully imported show_privacy_policy")
+except ImportError as e:
+    print(f"❌ Failed to import show_privacy_policy: {e}")
     def show_privacy_policy():
-        st.write("Privacy Policy page - Import failed") 
+        st.write("Privacy Policy page - Import failed")
+
+try:
+    from pages.contact_us import show_contact_page
+    print("✅ Successfully imported show_contact_page")
+except ImportError as e:
+    print(f"❌ Failed to import show_contact_page: {e}")
     def show_contact_page():
         st.write("Contact Us page - Import failed")
-    def custom_css():
-        pass
 
+try:
+    from utils.helpers import apply_custom_css
+    print("✅ Successfully imported apply_custom_css")
+except ImportError as e:
+    print(f"❌ Failed to import apply_custom_css: {e}")
+    def apply_custom_css():
+        pass
 # --- Enhanced Custom CSS for Modern UI ---
 def apply_custom_css():
     st.markdown("""
