@@ -1657,7 +1657,6 @@ def show_reconciliation_tool():
             ''', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
-
 def main_with_navigation():
     """Enhanced main function with vertical list navigation"""
     
@@ -1684,9 +1683,10 @@ def main_with_navigation():
                 "🏠 Home",
                 "📄 About", 
                 "🔒 Privacy",
-                "✉️ Contact"
+                "✉️ Contact",
+                "📊 Analytics"  # ADD this option to the list
             ],
-            icons=['house', 'info-circle', 'shield-lock', 'envelope'],  # Bootstrap icons
+            icons=['house', 'info-circle', 'shield-lock', 'envelope', 'bar-chart'],  # ADD analytics icon
             menu_icon="cast",
             default_index=0,
             orientation="vertical",  # Vertical list layout
@@ -1717,7 +1717,7 @@ def main_with_navigation():
     elif selected == "✉️ Contact":
         track_page_visit("contact")
         show_contact_page()
-    elif page == "📊 Analytics Dashboard":  # ADD this entire elif block
+    elif selected == "📊 Analytics":  # FIXED: Use 'selected' and match the option name
         track_page_visit("analytics")
         show_detailed_analytics()
 
