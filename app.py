@@ -1,9 +1,14 @@
 import streamlit as st
 import pandas as pd
 from fuzzywuzzy import fuzz, process
+from openpyxl import load_workbook
+from openpyxl.styles import Font
+from openpyxl.utils.dataframe import dataframe_to_rows
+import time
+import os
 from datetime import datetime
 import io
-import time
+import tempfile
 from io import BytesIO
 
 # Initialize session state for storing all processed sheets
@@ -19,6 +24,7 @@ def apply_custom_css():
     /* Import Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
+    /* Modern Color Palette */
     :root {
         --primary-blue: #4A90E2;
         --soft-green: #7ED321;
@@ -31,6 +37,7 @@ def apply_custom_css():
         --soft-shadow: rgba(74, 144, 226, 0.1);
     }
 
+    /* Global Styles */
     .main .block-container {
         font-family: 'Inter', sans-serif;
         transition: all 0.3s ease-in-out;
@@ -54,6 +61,7 @@ def apply_custom_css():
         100% { transform: scale(1); }
     }
 
+    /* Enhanced Header */
     .main-header {
         background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
         color: white;
@@ -78,6 +86,7 @@ def apply_custom_css():
         opacity: 0.9;
     }
 
+    /* Step Indicator */
     .step-container {
         background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
         border-radius: 15px;
@@ -104,6 +113,7 @@ def apply_custom_css():
         box-shadow: 0 0 10px rgba(255,255,255,0.5);
     }
 
+    /* Enhanced Buttons */
     .stButton > button {
         background: linear-gradient(45deg, var(--primary-blue), var(--soft-green));
         color: white;
@@ -128,6 +138,7 @@ def apply_custom_css():
         transform: translateY(-1px);
     }
 
+    /* Download Buttons */
     .download-button {
         background: linear-gradient(45deg, var(--success-green), var(--soft-green)) !important;
     }
@@ -136,6 +147,7 @@ def apply_custom_css():
         background: linear-gradient(45deg, #229954, var(--soft-green)) !important;
     }
 
+    /* Card Containers */
     .metric-card {
         background: white;
         border-radius: 15px;
@@ -148,11 +160,27 @@ def apply_custom_css():
         overflow: hidden;
     }
 
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--primary-blue), var(--soft-green));
+        transition: width 0.3s ease;
+    }
+
     .metric-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 15px 40px rgba(74, 144, 226, 0.15);
     }
 
+    .metric-card:hover::before {
+        width: 8px;
+    }
+
+    /* Tab Styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background: var(--warm-gray);
@@ -173,6 +201,7 @@ def apply_custom_css():
         color: white;
     }
 
+    /* Progress Bar Enhancement */
     .stProgress > div > div {
         background: linear-gradient(90deg, var(--soft-green), var(--primary-blue));
         border-radius: 10px;
@@ -180,6 +209,7 @@ def apply_custom_css():
         transition: all 0.3s ease;
     }
 
+    /* Success/Error Messages */
     .success-message {
         background: linear-gradient(45deg, var(--success-green), var(--soft-green));
         color: white;
@@ -210,12 +240,14 @@ def apply_custom_css():
         box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
     }
 
+    /* DataFrame Styling */
     .stDataFrame {
         border-radius: 10px;
         overflow: hidden;
         box-shadow: 0 5px 20px var(--soft-shadow);
     }
 
+    /* File Uploader */
     .stFileUploader {
         border: 2px dashed var(--primary-blue);
         border-radius: 15px;
@@ -228,6 +260,7 @@ def apply_custom_css():
         background: rgba(74, 144, 226, 0.05);
     }
 
+    /* Metrics */
     .stMetric {
         background: white;
         padding: 20px;
@@ -240,6 +273,7 @@ def apply_custom_css():
         transform: translateY(-2px);
     }
 
+    /* Loading Animation */
     .loading-container {
         display: flex;
         justify-content: center;
@@ -261,6 +295,7 @@ def apply_custom_css():
         100% { transform: rotate(360deg); }
     }
 
+    /* Sheet Preview Cards */
     .sheet-preview-card {
         background: white;
         border-radius: 15px;
@@ -276,6 +311,7 @@ def apply_custom_css():
         box-shadow: 0 10px 30px rgba(74, 144, 226, 0.15);
     }
 
+    /* Responsive Design */
     @media (max-width: 768px) {
         .main-header h1 {
             font-size: 2rem;
@@ -293,7 +329,7 @@ def apply_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-# Enhanced message display functions
+# --- Enhanced Message Functions ---
 def show_success_message(message):
     st.markdown(f'<div class="success-message">✅ {message}</div>', unsafe_allow_html=True)
 
@@ -303,14 +339,67 @@ def show_info_message(message):
 def show_error_message(message):
     st.markdown(f'<div class="error-message">❌ {message}</div>', unsafe_allow_html=True)
 
-# Progress bar and status text for animation
+# --- Step Indicator with Smooth Transitions ---
+def show_step_indicator(current_step, total_steps):
+    step_names = ["Upload Files", "Process Data", "Reconciliation", "Download Results"]
+    progress_percentage = (current_step / total_steps) * 100
+    
+    st.markdown(f"""
+    <div class="step-container">
+        <h3 style="margin: 0; font-size: 1.5rem;">Step {current_step} of {total_steps}: {step_names[current_step-1] if current_step <= len(step_names) else "Complete"}</h3>
+        <div class="step-progress">
+            <div class="step-progress-fill" style="width: {progress_percentage}%;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- Session State Management for All Sheets ---
+def store_sheet_data(sheet_name, dataframe, step_name):
+    """Store processed sheet data in session state"""
+    if 'all_sheets' not in st.session_state:
+        st.session_state.all_sheets = {}
+    
+    # Create unique key combining step and sheet name
+    key = f"{step_name}_{sheet_name}"
+    st.session_state.all_sheets[key] = {
+        'dataframe': dataframe.copy(),
+        'sheet_name': sheet_name,
+        'step': step_name,
+        'timestamp': datetime.now()
+    }
+
+def create_full_download_excel():
+    """Create Excel file with all processed sheets from all steps"""
+    if not st.session_state.all_sheets:
+        return None
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for key, sheet_data in st.session_state.all_sheets.items():
+            # Use descriptive sheet names
+            final_sheet_name = f"{sheet_data['step']}_{sheet_data['sheet_name']}"
+            # Excel sheet name limit is 31 characters
+            if len(final_sheet_name) > 31:
+                final_sheet_name = final_sheet_name[:31]
+            
+            sheet_data['dataframe'].to_excel(
+                writer, 
+                sheet_name=final_sheet_name,
+                index=False
+            )
+    
+    output.seek(0)
+    return output.getvalue()
+
+# --- Enhanced Progress Bar ---
 def create_animated_progress_bar():
     progress_bar = st.progress(0)
     status_text = st.empty()
     return progress_bar, status_text
 
-# Utility functions for columns and data cleaning
+# --- Utility Functions (keeping original functionality) ---
 def get_column(df, colname):
+    """FIXED: Handle integer column names properly"""
     for col in df.columns:
         col_str = str(col).strip().lower()
         colname_str = str(colname).strip().lower()
@@ -322,8 +411,15 @@ def get_raw_unique_names(series):
     return pd.Series(series).dropna().drop_duplicates().tolist()
 
 def fix_tally_columns(df_tally):
-    expected_cols = ['GSTIN of supplier', 'Supplier', 'Invoice number', 'Invoice Date', 'Invoice Value', 'Rate', 'Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT tax', 'Cess']
-    if (len(df_tally.columns) >= 2 and str(df_tally.columns[0]).startswith('Unnamed') and not any(col.lower().strip() == 'supplier' for col in df_tally.columns)):
+    """Fix Tally sheet column structure when headers are wrong"""
+    expected_cols = ['GSTIN of supplier', 'Supplier', 'Invoice number', 'Invoice Date', 
+                    'Invoice Value', 'Rate', 'Taxable Value', 'Integrated Tax', 
+                    'Central Tax', 'State/UT tax', 'Cess']
+    
+    if (len(df_tally.columns) >= 2 and 
+        str(df_tally.columns[0]).startswith('Unnamed') and 
+        not any(col.lower().strip() == 'supplier' for col in df_tally.columns)):
+        
         new_columns = []
         for i, col in enumerate(df_tally.columns):
             if i < len(expected_cols):
@@ -331,9 +427,12 @@ def fix_tally_columns(df_tally):
             else:
                 new_columns.append(f"Column_{i}")
         df_tally.columns = new_columns
+    
     return df_tally
 
 def create_default_format():
+    """Create default Excel format for users"""
+    # Sample data for Tally sheet
     tally_data = {
         'GSTIN of supplier': ['27AABCU9603R1ZX', '27AABCU9603R1ZY', ''],
         'Supplier': ['ABC Private Ltd', 'XYZ Industries', 'GHI Enterprises'],
@@ -347,6 +446,8 @@ def create_default_format():
         'State/UT tax': [9000, 0, 6000],
         'Cess': [0, 0, 0]
     }
+
+    # Sample data for GSTR-2A sheet  
     gstr_data = {
         'GSTIN of supplier': ['27AABCU9603R1ZX', '27AABCU9603R1ZZ', ''],
         'Supplier': ['ABC Private Limited', 'DEF Corporation', 'GHI Enterprises'],
@@ -360,44 +461,60 @@ def create_default_format():
         'State/UT tax': [9000, 4800, 6000],
         'Cess': [0, 0, 0]
     }
+
     df_tally = pd.DataFrame(tally_data)
     df_gstr = pd.DataFrame(gstr_data)
+
+    # Create Excel in memory
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Add empty row for header space
         empty_row = pd.DataFrame([[''] * len(df_tally.columns)], columns=df_tally.columns)
         empty_row.to_excel(writer, sheet_name='Tally', index=False, header=False)
         df_tally.to_excel(writer, sheet_name='Tally', index=False, startrow=1)
+        
         empty_row_gstr = pd.DataFrame([[''] * len(df_gstr.columns)], columns=df_gstr.columns)
         empty_row_gstr.to_excel(writer, sheet_name='GSTR-2A', index=False, header=False)
         df_gstr.to_excel(writer, sheet_name='GSTR-2A', index=False, startrow=1)
+
     output.seek(0)
     return output.getvalue()
 
 def show_help_instructions():
+    """Enhanced help instructions with animations"""
     st.markdown("""
     <div class="metric-card">
         <h3>📋 Instructions for File Upload</h3>
         <ol>
-            <li><strong>File Format:</strong> Upload Excel files (.xlsx) with sheets named 'Tally' and 'GSTR-2A'.</li>
+            <li><strong>File Format:</strong> Upload Excel files (.xlsx) with specific sheet names</li>
+            <li><strong>Required Sheets:</strong>
+                <ul>
+                    <li><strong>Tally:</strong> Contains purchase data from Tally ERP</li>
+                    <li><strong>GSTR-2A:</strong> Contains data from GSTR-2A portal</li>
+                </ul>
+            </li>
             <li><strong>Required Columns:</strong> GSTIN of supplier, Supplier, Invoice number, Invoice Date, Invoice Value, Rate, Taxable Value, Integrated Tax, Central Tax, State/UT tax, Cess</li>
-            <li><strong>Data Format:</strong> Ensure dates are in DD-MM-YYYY format and amounts are numeric.</li>
-            <li><strong>Note:</strong> Both sheets must exist in the same Excel file.</li>
+            <li><strong>Data Format:</strong> Ensure dates are in DD-MM-YYYY format and amounts are numeric</li>
         </ol>
     </div>
     """, unsafe_allow_html=True)
 
-# Fuzzy matching logic
+# --- Enhanced Fuzzy Matching Logic ---
 def two_way_match(tally_list, gstr_list, threshold):
     match_map, used_tally, used_gstr = {}, set(), set()
+    
     tally_upper = {name.upper(): name for name in tally_list}
     gstr_upper = {name.upper(): name for name in gstr_list}
     tally_keys, gstr_keys = list(tally_upper.keys()), list(gstr_upper.keys())
+    
     total_steps = len(gstr_keys) + len(tally_keys)
     progress_bar, status_text = create_animated_progress_bar()
+
     # GSTR to Tally matching
     for i, gstr_name in enumerate(gstr_keys):
         best_match, score = process.extractOne(gstr_name, tally_keys, scorer=fuzz.ratio)
         gstr_real = gstr_upper[gstr_name]
+        
         if best_match and score >= threshold and best_match not in used_tally:
             tally_real = tally_upper[best_match]
             match_map[(gstr_real, tally_real)] = (gstr_real, tally_real, score)
@@ -406,16 +523,20 @@ def two_way_match(tally_list, gstr_list, threshold):
         else:
             match_map[(gstr_real, '')] = (gstr_real, '', 0)
             used_gstr.add(gstr_name)
+            
         progress = (i + 1) / total_steps
         progress_bar.progress(progress)
         status_text.markdown(f'<div class="info-message">🔍 Matching GSTR entries... {i+1}/{len(gstr_keys)}</div>', unsafe_allow_html=True)
-        time.sleep(0.005)
+        time.sleep(0.01)
+
     # Tally to GSTR matching
     for i, tally_name in enumerate(tally_keys):
         if tally_name in used_tally:
             continue
+            
         best_match, score = process.extractOne(tally_name, gstr_keys, scorer=fuzz.ratio)
         tally_real = tally_upper[tally_name]
+        
         if best_match and score >= threshold and best_match not in used_gstr:
             gstr_real = gstr_upper[best_match]
             match_map[(gstr_real, tally_real)] = (gstr_real, tally_real, score)
@@ -424,57 +545,206 @@ def two_way_match(tally_list, gstr_list, threshold):
         else:
             match_map[('', tally_real)] = ('', tally_real, 0)
             used_tally.add(tally_name)
+            
         progress = (len(gstr_keys) + i + 1) / total_steps
         progress_bar.progress(progress)
-        status_text.markdown(f'<div class="info-message">🔍 Matching Tally entries... {i+1}/{len(tally_keys)}</div>', unsafe_allow_html=True)
-        time.sleep(0.005)
+        status_text.markdown(f'<div class="info-message">🔍 Matching Tally entries... {i+1}/{len(tally_keys) - len([k for k in tally_keys if k in used_tally])}</div>', unsafe_allow_html=True)
+        time.sleep(0.01)
+
+    # Complete progress
     progress_bar.progress(1.0)
     status_text.markdown('<div class="success-message">✅ Matching completed successfully!</div>', unsafe_allow_html=True)
     time.sleep(1)
     progress_bar.empty()
     status_text.empty()
+
     results = []
     for gstr_name, tally_name, score in match_map.values():
-        confirm = "Yes" if gstr_name and tally_name and score >= 80 else "No"
+        # Set default confirmation based on match quality
+        if gstr_name and tally_name and score >= 80:
+            confirm = "Yes"
+        else:
+            confirm = "No"
         results.append([gstr_name, tally_name, score, confirm])
+    
     return results
 
-# Store dataframes in session state
-def store_sheet_data(sheet_name, dataframe, step_name):
-    if 'all_sheets' not in st.session_state:
-        st.session_state.all_sheets = {}
-    key = f"{step_name}_{sheet_name}"
-    st.session_state.all_sheets[key] = {
-        'dataframe': dataframe.copy(),
-        'sheet_name': sheet_name,
-        'step': step_name,
-        'timestamp': datetime.now()
-    }
-
-def create_full_download_excel():
+# --- Individual Sheet Display and Download Functions ---
+def display_all_sheets_with_downloads():
+    """Display all generated sheets in tabs with individual download options"""
+    
     if not st.session_state.all_sheets:
-        return None
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        for key, sheet_data in st.session_state.all_sheets.items():
-            final_sheet_name = f"{sheet_data['step']}_{sheet_data['sheet_name']}"
-            if len(final_sheet_name) > 31:
-                final_sheet_name = final_sheet_name[:31]
-            sheet_data['dataframe'].to_excel(writer, sheet_name=final_sheet_name, index=False)
-    output.seek(0)
-    return output.getvalue()
+        show_info_message("No processed sheets available yet. Complete the reconciliation process first.")
+        return
+
+    # Create tabs for each sheet
+    sheet_keys = list(st.session_state.all_sheets.keys())
+    if len(sheet_keys) > 1:
+        tab_names = [f"📊 {key.replace('_', ' ')}" for key in sheet_keys]
+        tabs = st.tabs(tab_names)
+    else:
+        tabs = [st.container()]
+
+    for i, (sheet_key, sheet_data) in enumerate(st.session_state.all_sheets.items()):
+        with tabs[i] if len(sheet_keys) > 1 else tabs[0]:
+            st.markdown(f"""
+            <div class="sheet-preview-card">
+                <h3>📋 {sheet_data['step']} - {sheet_data['sheet_name']}</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Display sheet preview
+            df = sheet_data['dataframe']
+            st.dataframe(df, use_container_width=True)
+            
+            # Sheet statistics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("📊 Rows", len(df))
+            with col2:
+                st.metric("📈 Columns", len(df.columns))
+            with col3:
+                if 'Invoice Value' in df.columns:
+                    total_value = df['Invoice Value'].sum()
+                    st.metric("💰 Total Value", f"₹{total_value:,.0f}")
+                else:
+                    st.metric("💰 Total Value", "N/A")
+            with col4:
+                st.metric("🕒 Last Updated", sheet_data['timestamp'].strftime("%H:%M:%S"))
+            
+            # Individual download buttons
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Excel download for individual sheet
+                excel_buffer = BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, sheet_name=sheet_data['sheet_name'], index=False)
+                excel_buffer.seek(0)
+                
+                st.download_button(
+                    label=f"📥 Download {sheet_data['sheet_name']} as Excel",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"{sheet_data['step']}_{sheet_data['sheet_name']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"excel_{sheet_key}"
+                )
+            
+            with col2:
+                # CSV download for individual sheet
+                csv_buffer = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label=f"📄 Download {sheet_data['sheet_name']} as CSV",
+                    data=csv_buffer,
+                    file_name=f"{sheet_data['step']}_{sheet_data['sheet_name']}.csv",
+                    mime="text/csv",
+                    key=f"csv_{sheet_key}"
+                )
+
+# --- Enhanced Download Section ---
+def show_download_section():
+    st.markdown("### 📁 Download Options")
+    
+    if st.session_state.all_sheets:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Full download with all sheets
+            full_excel = create_full_download_excel()
+            if full_excel:
+                st.download_button(
+                    label="📦 Download Complete Report",
+                    data=full_excel,
+                    file_name=f"GSTR_Reconciliation_Full_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    help="Downloads Excel file with all processed sheets from all steps"
+                )
+        
+        with col2:
+            # Show summary statistics
+            total_sheets = len(st.session_state.all_sheets)
+            st.metric("📊 Total Sheets", total_sheets)
+        
+        with col3:
+            # Clear all data option
+            if st.button("🗑️ Clear All Data", help="Remove all processed data and start fresh"):
+                st.session_state.all_sheets = {}
+                st.session_state.current_step = 1
+                show_success_message("All data cleared successfully!")
+                st.rerun()
+    
+    st.markdown("---")
+    
+    # Display individual sheets with download options
+    display_all_sheets_with_downloads()
+
+# --- Main Reconciliation Function ---
+def perform_reconciliation(df_tally, df_gstr, threshold):
+    """Enhanced reconciliation with session state storage"""
+    
+    # Store original data
+    store_sheet_data("Tally_Original", df_tally, "Data_Upload")
+    store_sheet_data("GSTR_Original", df_gstr, "Data_Upload")
+    
+    st.session_state.current_step = 3
+    show_step_indicator(3, 4)
+    
+    show_info_message("Starting reconciliation process...")
+    
+    try:
+        # Get supplier columns
+        tally_supplier_col = get_column(df_tally, 'supplier')
+        gstr_supplier_col = get_column(df_gstr, 'supplier')
+        
+        # Get unique supplier names
+        tally_suppliers = get_raw_unique_names(df_tally[tally_supplier_col])
+        gstr_suppliers = get_raw_unique_names(df_gstr[gstr_supplier_col])
+        
+        # Perform fuzzy matching
+        matches = two_way_match(tally_suppliers, gstr_suppliers, threshold)
+        
+        # Create match results DataFrame
+        match_df = pd.DataFrame(matches, columns=['GSTR Supplier', 'Tally Supplier', 'Match Score', 'Confirm'])
+        
+        # Store match results
+        store_sheet_data("Supplier_Matches", match_df, "Reconciliation")
+        
+        show_success_message(f"Reconciliation completed! Found {len(matches)} supplier matches.")
+        
+        # Create detailed reconciliation report
+        detailed_report = create_detailed_reconciliation_report(df_tally, df_gstr, match_df)
+        store_sheet_data("Detailed_Report", detailed_report, "Reconciliation")
+        
+        # Create summary statistics
+        summary_stats = create_summary_statistics(df_tally, df_gstr, match_df)
+        store_sheet_data("Summary_Statistics", summary_stats, "Reconciliation")
+        
+        st.session_state.current_step = 4
+        show_step_indicator(4, 4)
+        
+        return match_df, detailed_report, summary_stats
+        
+    except Exception as e:
+        show_error_message(f"Error during reconciliation: {str(e)}")
+        return None, None, None
 
 def create_detailed_reconciliation_report(df_tally, df_gstr, match_df):
+    """Create detailed reconciliation report"""
     report_data = []
+    
     for _, row in match_df.iterrows():
         gstr_supplier = row['GSTR Supplier']
         tally_supplier = row['Tally Supplier']
+        
         if gstr_supplier and tally_supplier:
+            # Get invoices for both suppliers
             gstr_invoices = df_gstr[df_gstr['Supplier'].str.contains(gstr_supplier, case=False, na=False)]
             tally_invoices = df_tally[df_tally['Supplier'].str.contains(tally_supplier, case=False, na=False)]
+            
             gstr_total = gstr_invoices['Invoice Value'].sum() if not gstr_invoices.empty else 0
             tally_total = tally_invoices['Invoice Value'].sum() if not tally_invoices.empty else 0
             difference = gstr_total - tally_total
+            
             report_data.append({
                 'GSTR Supplier': gstr_supplier,
                 'Tally Supplier': tally_supplier,
@@ -486,14 +756,19 @@ def create_detailed_reconciliation_report(df_tally, df_gstr, match_df):
                 'Match Quality': row['Match Score'],
                 'Status': 'Matched' if row['Confirm'] == 'Yes' else 'Manual Review Required'
             })
+    
     return pd.DataFrame(report_data)
 
 def create_summary_statistics(df_tally, df_gstr, match_df):
+    """Create summary statistics"""
+    
     total_gstr_suppliers = len(df_gstr['Supplier'].dropna().unique())
     total_tally_suppliers = len(df_tally['Supplier'].dropna().unique())
     matched_suppliers = len(match_df[match_df['Confirm'] == 'Yes'])
+    
     gstr_total_value = df_gstr['Invoice Value'].sum()
     tally_total_value = df_tally['Invoice Value'].sum()
+    
     summary_data = {
         'Metric': [
             'Total GSTR Suppliers',
@@ -518,125 +793,14 @@ def create_summary_statistics(df_tally, df_gstr, match_df):
             len(df_tally)
         ]
     }
+    
     return pd.DataFrame(summary_data)
 
-def perform_reconciliation(df_tally, df_gstr, threshold):
-    store_sheet_data("Tally_Original", df_tally, "Data_Upload")
-    store_sheet_data("GSTR_Original", df_gstr, "Data_Upload")
-    st.session_state.current_step = 3
-    show_step_indicator(3, 4)
-    show_info_message("Starting reconciliation process...")
-    try:
-        tally_supplier_col = get_column(df_tally, 'supplier')
-        gstr_supplier_col = get_column(df_gstr, 'supplier')
-        tally_suppliers = get_raw_unique_names(df_tally[tally_supplier_col])
-        gstr_suppliers = get_raw_unique_names(df_gstr[gstr_supplier_col])
-        matches = two_way_match(tally_suppliers, gstr_suppliers, threshold)
-        match_df = pd.DataFrame(matches, columns=['GSTR Supplier', 'Tally Supplier', 'Match Score', 'Confirm'])
-        store_sheet_data("Supplier_Matches", match_df, "Reconciliation")
-        show_success_message(f"Reconciliation completed! Found {len(matches)} supplier matches.")
-        detailed_report = create_detailed_reconciliation_report(df_tally, df_gstr, match_df)
-        store_sheet_data("Detailed_Report", detailed_report, "Reconciliation")
-        summary_stats = create_summary_statistics(df_tally, df_gstr, match_df)
-        store_sheet_data("Summary_Statistics", summary_stats, "Reconciliation")
-        st.session_state.current_step = 4
-        show_step_indicator(4, 4)
-        return match_df, detailed_report, summary_stats
-    except Exception as e:
-        show_error_message(f"Error during reconciliation: {str(e)}")
-        return None, None, None
-
-def show_step_indicator(current_step, total_steps):
-    step_names = ["Upload Files", "Process Data", "Reconciliation", "Download Results"]
-    progress_percentage = (current_step / total_steps) * 100
-    st.markdown(f"""
-    <div class="step-container">
-        <h3 style="margin: 0; font-size: 1.5rem;">Step {current_step} of {total_steps}: {step_names[current_step-1] if current_step <= len(step_names) else "Complete"}</h3>
-        <div class="step-progress">
-            <div class="step-progress-fill" style="width: {progress_percentage}%;"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def display_all_sheets_with_downloads():
-    if not st.session_state.all_sheets:
-        show_info_message("No processed sheets available yet. Complete the reconciliation process first.")
-        return
-    sheet_keys = list(st.session_state.all_sheets.keys())
-    if len(sheet_keys) > 1:
-        tab_names = [f"📊 {key.replace('_', ' ')}" for key in sheet_keys]
-        tabs = st.tabs(tab_names)
-    else:
-        tabs = [st.container()]
-    for i, (sheet_key, sheet_data) in enumerate(st.session_state.all_sheets.items()):
-        with tabs[i] if len(sheet_keys) > 1 else tabs[0]:
-            st.markdown(f'<div class="sheet-preview-card"><h3>📋 {sheet_data["step"]} - {sheet_data["sheet_name"]}</h3></div>', unsafe_allow_html=True)
-            df = sheet_data['dataframe']
-            st.dataframe(df, use_container_width=True)
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("📊 Rows", len(df))
-            with col2:
-                st.metric("📈 Columns", len(df.columns))
-            with col3:
-                if 'Invoice Value' in df.columns:
-                    total_value = df['Invoice Value'].sum()
-                    st.metric("💰 Total Value", f"₹{total_value:,.0f}")
-                else:
-                    st.metric("💰 Total Value", "N/A")
-            with col4:
-                st.metric("🕒 Last Updated", sheet_data['timestamp'].strftime("%H:%M:%S"))
-            col1, col2 = st.columns(2)
-            with col1:
-                excel_buffer = BytesIO()
-                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    df.to_excel(writer, sheet_name=sheet_data['sheet_name'], index=False)
-                excel_buffer.seek(0)
-                st.download_button(
-                    label=f"📥 Download {sheet_data['sheet_name']} as Excel",
-                    data=excel_buffer.getvalue(),
-                    file_name=f"{sheet_data['step']}_{sheet_data['sheet_name']}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"excel_{sheet_key}"
-                )
-            with col2:
-                csv_buffer = df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label=f"📄 Download {sheet_data['sheet_name']} as CSV",
-                    data=csv_buffer,
-                    file_name=f"{sheet_data['step']}_{sheet_data['sheet_name']}.csv",
-                    mime="text/csv",
-                    key=f"csv_{sheet_key}"
-                )
-
-def show_download_section():
-    st.markdown("### 📁 Download Options")
-    if st.session_state.all_sheets:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            full_excel = create_full_download_excel()
-            if full_excel:
-                st.download_button(
-                    label="📦 Download Complete Report",
-                    data=full_excel,
-                    file_name=f"GSTR_Reconciliation_Full_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Downloads Excel file with all processed sheets from all steps"
-                )
-        with col2:
-            total_sheets = len(st.session_state.all_sheets)
-            st.metric("📊 Total Sheets", total_sheets)
-        with col3:
-            if st.button("🗑️ Clear All Data", help="Remove all processed data and start fresh"):
-                st.session_state.all_sheets = {}
-                st.session_state.current_step = 1
-                show_success_message("All data cleared successfully!")
-                st.experimental_rerun()
-    st.markdown("---")
-    display_all_sheets_with_downloads()
-
+# --- Enhanced Streamlit App ---
 def main():
+    # Apply custom CSS first (keep your code here)
     apply_custom_css()
+
     st.set_page_config(
         page_title="GSTR vs Tally Reconciliation",
         page_icon="📊",
@@ -650,19 +814,26 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # Step indicator
     current_step = st.session_state.get('current_step', 1)
     show_step_indicator(current_step, 4)
 
+    # Sidebar for settings and help
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
+        
+        # Matching threshold
         threshold = st.slider(
-            "🎯 Matching Threshold",
-            min_value=50,
-            max_value=100,
+            "🎯 Matching Threshold", 
+            min_value=50, 
+            max_value=100, 
             value=75,
             help="Higher values require more exact matches"
         )
+        
         st.markdown("---")
+        
+        # Download sample format
         st.markdown("### 📄 Sample Format")
         sample_data = create_default_format()
         st.download_button(
@@ -671,94 +842,184 @@ def main():
             file_name="GSTR_Tally_Sample_Format.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        
         st.markdown("---")
+        
+        # Help section
         with st.expander("❓ Help & Instructions"):
             show_help_instructions()
 
+    # Main content area
     tab1, tab2, tab3 = st.tabs(["📤 Upload & Process", "🔍 Reconciliation Results", "📊 Analytics"])
-
+    
     with tab1:
         st.markdown("### 📤 File Upload Section")
-        # Single file uploader for both sheets
-        uploaded_file = st.file_uploader("Upload Excel file with 'Tally' and 'GSTR-2A' sheets", type=['xlsx'])
-        if uploaded_file is not None:
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📊 Tally Data")
+            tally_file = st.file_uploader(
+                "Upload Tally Excel file",
+                type=['xlsx'],
+                key="tally_upload",
+                help="Upload your Tally purchase register in Excel format"
+            )
+        
+        with col2:
+            st.markdown("#### 📋 GSTR-2A Data")
+            gstr_file = st.file_uploader(
+                "Upload GSTR-2A Excel file",
+                type=['xlsx'],
+                key="gstr_upload",
+                help="Upload your GSTR-2A data in Excel format"
+            )
+        
+        # Process files when both are uploaded
+        if tally_file and gstr_file:
+            st.session_state.current_step = 2
+            show_step_indicator(2, 4)
+            
             try:
-                with st.spinner("📊 Loading Tally and GSTR-2A data..."):
-                    df_tally = pd.read_excel(uploaded_file, sheet_name='Tally', header=1)
+                # Load data
+                with st.spinner("📊 Loading Tally data..."):
+                    df_tally = pd.read_excel(tally_file, sheet_name='Tally', header=1)
                     df_tally = fix_tally_columns(df_tally)
-                    df_gstr = pd.read_excel(uploaded_file, sheet_name='GSTR-2A', header=1)
-                st.session_state.current_step = 2
-                show_step_indicator(2, 4)
+                
+                with st.spinner("📋 Loading GSTR-2A data..."):
+                    df_gstr = pd.read_excel(gstr_file, sheet_name='GSTR-2A', header=1)
+                
                 show_success_message("Files loaded successfully!")
+                
+                # Data preview
                 st.markdown("### 👀 Data Preview")
+                
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("#### Tally Data Preview")
                     st.dataframe(df_tally.head(), use_container_width=True)
                     st.metric("📊 Total Tally Records", len(df_tally))
+                
                 with col2:
-                    st.markdown("#### GSTR-2A Data Preview")
+                    st.markdown("#### GSTR-2A Data Preview") 
                     st.dataframe(df_gstr.head(), use_container_width=True)
                     st.metric("📋 Total GSTR Records", len(df_gstr))
+                
+                # Start reconciliation button
                 if st.button("🚀 Start Reconciliation Process", type="primary"):
                     match_df, detailed_report, summary_stats = perform_reconciliation(df_tally, df_gstr, threshold)
+                    
                     if match_df is not None:
                         st.session_state.reconciliation_complete = True
-                        st.experimental_rerun()
+                        st.rerun()
+                        
             except Exception as e:
-                show_error_message(f"Error processing file: {str(e)}")
+                show_error_message(f"Error processing files: {str(e)}")
                 st.session_state.current_step = 1
 
     with tab2:
         st.markdown("### 🔍 Reconciliation Results")
+        
         if st.session_state.all_sheets:
+            # Display results if available
             match_sheets = [key for key in st.session_state.all_sheets.keys() if 'Supplier_Matches' in key]
+            
             if match_sheets:
                 latest_match = st.session_state.all_sheets[match_sheets[-1]]['dataframe']
+                
+                # Summary metrics
                 col1, col2, col3, col4 = st.columns(4)
+                
                 with col1:
                     total_matches = len(latest_match)
                     st.metric("🔍 Total Comparisons", total_matches)
+                
                 with col2:
                     confirmed_matches = len(latest_match[latest_match['Confirm'] == 'Yes'])
                     st.metric("✅ Confirmed Matches", confirmed_matches)
+                
                 with col3:
-                    match_rate = (confirmed_matches / total_matches) * 100 if total_matches > 0 else 0
-                    st.metric("📈 Match Rate", f"{match_rate:.1f}%")
+                    if total_matches > 0:
+                        match_rate = (confirmed_matches / total_matches) * 100
+                        st.metric("📈 Match Rate", f"{match_rate:.1f}%")
+                    else:
+                        st.metric("📈 Match Rate", "0%")
+                
                 with col4:
                     avg_score = latest_match['Match Score'].mean()
                     st.metric("⭐ Avg Match Score", f"{avg_score:.1f}")
+                
+                # Display match results
                 st.markdown("#### 📋 Supplier Matching Results")
                 st.dataframe(latest_match, use_container_width=True)
+                
+                # Allow editing of match confirmations
+                if st.button("✏️ Edit Match Confirmations"):
+                    st.session_state.edit_mode = True
+                
+                if st.session_state.get('edit_mode', False):
+                    st.markdown("##### ✏️ Edit Match Confirmations")
+                    edited_df = st.data_editor(
+                        latest_match,
+                        column_config={
+                            "Confirm": st.column_config.SelectboxColumn(
+                                "Confirm Match",
+                                options=["Yes", "No"],
+                                required=True
+                            )
+                        },
+                        use_container_width=True
+                    )
+                    
+                    if st.button("💾 Save Changes"):
+                        # Update the stored data
+                        store_sheet_data("Supplier_Matches", edited_df, "Reconciliation_Updated")
+                        show_success_message("Match confirmations updated successfully!")
+                        st.session_state.edit_mode = False
+                        st.rerun()
             else:
-                show_info_message("No reconciliation results available. Please upload file and run reconciliation.")
+                show_info_message("No reconciliation results available. Please upload files and run reconciliation first.")
         else:
-            show_info_message("No data available. Please upload file and run reconciliation.")
-
+            show_info_message("No data available. Please upload files and run reconciliation first.")
+    
     with tab3:
         st.markdown("### 📊 Analytics Dashboard")
+        
         if st.session_state.all_sheets:
+            # Check if we have summary statistics
             summary_sheets = [key for key in st.session_state.all_sheets.keys() if 'Summary_Statistics' in key]
+            
             if summary_sheets:
                 summary_data = st.session_state.all_sheets[summary_sheets[-1]]['dataframe']
+                
+                # Display summary in a nice format
                 col1, col2 = st.columns(2)
+                
                 with col1:
                     st.markdown("#### 📈 Key Metrics")
                     for _, row in summary_data.iterrows():
-                        st.metric(row['Metric'], row['Value'])
+                        if 'Percentage' in row['Metric'] or 'Rate' in row['Metric']:
+                            st.metric(row['Metric'], row['Value'])
+                        elif '₹' in str(row['Value']):
+                            st.metric(row['Metric'], row['Value'])
+                
                 with col2:
                     st.markdown("#### 📊 Data Summary")
                     st.dataframe(summary_data, use_container_width=True)
+                
+                # Detailed report if available
                 detail_sheets = [key for key in st.session_state.all_sheets.keys() if 'Detailed_Report' in key]
                 if detail_sheets:
                     detailed_data = st.session_state.all_sheets[detail_sheets[-1]]['dataframe']
+                    
                     st.markdown("#### 📋 Detailed Reconciliation Report")
                     st.dataframe(detailed_data, use_container_width=True)
             else:
-                show_info_message("No analytics data available. Complete reconciliation to see analytics.")
+                show_info_message("No analytics data available. Complete the reconciliation process to see analytics.")
         else:
-            show_info_message("No data available for analytics. Please upload file and run reconciliation.")
+            show_info_message("No data available for analytics. Please upload files and run reconciliation first.")
 
+    # Download section - always visible at bottom
     st.markdown("---")
     show_download_section()
 
