@@ -1668,10 +1668,9 @@ def main_with_navigation():
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    # Google AdSense verification script for site ownership
+    # Google AdSense account linking meta tag
     st.markdown("""
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5383286577258931"
-         crossorigin="anonymous"></script>
+    <meta name="google-adsense-account" content="ca-pub-5383286577258931">
     """, unsafe_allow_html=True)
     
     # Hide the default navigation options
