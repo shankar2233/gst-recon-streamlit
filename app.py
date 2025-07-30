@@ -10,52 +10,27 @@ from datetime import datetime
 import io
 import tempfile
 import sys
-
 # Add the current directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
-# Add current directory to Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
-
-# Debug information
-print(f"Current directory: {current_dir}")
-print(f"Pages folder exists: {os.path.exists(os.path.join(current_dir, 'pages'))}")
-print(f"Utils folder exists: {os.path.exists(os.path.join(current_dir, 'utils'))}")
-print(f"helpers.py exists: {os.path.exists(os.path.join(current_dir, 'utils', 'helpers.py'))}")
-
+# Import the page modules (will work after you create the files)
 try:
     from pages.about_us import show_about_page
-    print("✅ Successfully imported show_about_page")
-except ImportError as e:
-    print(f"❌ Failed to import show_about_page: {e}")
-    def show_about_page():
-        st.write("About Us page - Import failed")
-
-try:
     from pages.privacy_policy import show_privacy_policy
-    print("✅ Successfully imported show_privacy_policy")
-except ImportError as e:
-    print(f"❌ Failed to import show_privacy_policy: {e}")
-    def show_privacy_policy():
-        st.write("Privacy Policy page - Import failed")
-
-try:
     from pages.contact_us import show_contact_page
-    print("✅ Successfully imported show_contact_page")
-except ImportError as e:
-    print(f"❌ Failed to import show_contact_page: {e}")
+    from utils.helpers import apply_custom_css as custom_css
+except ImportError:
+    # Fallback if files don't exist yet
+    def show_about_page():
+        st.write("About Us page - Create pages/about_us.py file")
+    def show_privacy_policy():
+        st.write("Privacy Policy page - Create pages/privacy_policy.py file")
     def show_contact_page():
-        st.write("Contact Us page - Import failed")
-
-try:
-    from utils.helpers import apply_custom_css
-    print("✅ Successfully imported apply_custom_css")
-except ImportError as e:
-    print(f"❌ Failed to import apply_custom_css: {e}")
-    def apply_custom_css():
+        st.write("Contact Us page - Create pages/contact_us.py file")
+    def custom_css():
         pass
+
 # --- Enhanced Custom CSS for Modern UI ---
 def apply_custom_css():
     st.markdown("""
@@ -1646,7 +1621,7 @@ def show_reconciliation_tool():
         st.markdown('</div>', unsafe_allow_html=True)
 
 def main_with_navigation():
-    """Enhanced main function with navigation and analytics"""
+    """Enhanced main function with navigation"""
     
     # Page configuration
     st.set_page_config(
@@ -1655,9 +1630,6 @@ def main_with_navigation():
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    
-    # Show analytics widget in top-right corner
-    show_analytics_widget()
     
     # Sidebar navigation
     st.sidebar.title("🔍 GST Reconciliation Tool")
@@ -1668,26 +1640,18 @@ def main_with_navigation():
         "🏠 Home - Reconciliation Tool",
         "📄 About Us", 
         "🔒 Privacy Policy",
-        "✉️ Contact Us",
-        "📊 Analytics Dashboard"  # Add this new option
+        "✉️ Contact Us"
     ])
     
-    # Page routing with analytics tracking
+    # Page routing
     if page == "🏠 Home - Reconciliation Tool":
-        track_page_visit("home")
         show_reconciliation_tool()
     elif page == "📄 About Us":
-        track_page_visit("about")
         show_about_page()
     elif page == "🔒 Privacy Policy":
-        track_page_visit("privacy")
         show_privacy_policy()
     elif page == "✉️ Contact Us":
-        track_page_visit("contact")
         show_contact_page()
-    elif page == "📊 Analytics Dashboard":
-        track_page_visit("analytics")
-        show_detailed_analytics()
 
 def create_required_files():
     """Create required directories and files"""
