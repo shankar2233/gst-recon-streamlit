@@ -1647,7 +1647,7 @@ def show_reconciliation_tool():
         st.markdown('</div>', unsafe_allow_html=True)
 
 def main_with_navigation():
-    """Enhanced main function with navigation"""
+    """Enhanced main function with navigation and analytics"""
     
     # Page configuration
     st.set_page_config(
@@ -1656,6 +1656,9 @@ def main_with_navigation():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+    
+    # Show analytics widget in top-right corner
+    show_analytics_widget()
     
     # Sidebar navigation
     st.sidebar.title("🔍 GST Reconciliation Tool")
@@ -1666,18 +1669,26 @@ def main_with_navigation():
         "🏠 Home - Reconciliation Tool",
         "📄 About Us", 
         "🔒 Privacy Policy",
-        "✉️ Contact Us"
+        "✉️ Contact Us",
+        "📊 Analytics Dashboard"  # Add this new option
     ])
     
-    # Page routing
+    # Page routing with analytics tracking
     if page == "🏠 Home - Reconciliation Tool":
+        track_page_visit("home")
         show_reconciliation_tool()
     elif page == "📄 About Us":
+        track_page_visit("about")
         show_about_page()
     elif page == "🔒 Privacy Policy":
+        track_page_visit("privacy")
         show_privacy_policy()
     elif page == "✉️ Contact Us":
+        track_page_visit("contact")
         show_contact_page()
+    elif page == "📊 Analytics Dashboard":
+        track_page_visit("analytics")
+        show_detailed_analytics()
 
 def create_required_files():
     """Create required directories and files"""
