@@ -1670,7 +1670,7 @@ def main_with_navigation():
     
     # Page routing
     if page == "🏠 Home - Reconciliation Tool":
-        show_reconciliation_tool()  # Your existing reconciliation logic
+        show_reconciliation_tool()
     elif page == "📄 About Us":
         show_about_page()
     elif page == "🔒 Privacy Policy":
