@@ -4,25 +4,70 @@ def show_contact_page():
     st.markdown(
         """
         <style>
+        /* Page Header */
         .contact-header {
             text-align: center;
-            font-size: 2.5em;
-            font-weight: 700;
-            color: #2E86C1;
-            margin-bottom: 0.5em;
+            font-size: 2.7em;
+            font-weight: 800;
+            color: #1F618D;
+            margin-bottom: 0.2em;
+            animation: fadeInDown 1s ease-in-out;
         }
+
         .subtext {
             text-align: center;
-            font-size: 1.1em;
+            font-size: 1.2em;
             color: #555;
             margin-bottom: 2em;
+            animation: fadeInUp 1.2s ease-in-out;
         }
+
+        /* Boxes */
         .contact-box {
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            padding: 1.5em;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            background: linear-gradient(135deg, #f0faff, #ffffff);
+            border: 1px solid #cce0ff;
+            border-radius: 16px;
+            padding: 1.8em;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: fadeIn 1s ease-in;
+        }
+
+        .contact-box:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+        }
+
+        .contact-box h4 {
+            margin-bottom: 1em;
+        }
+
+        /* Email pulse effect */
+        .pulse-email {
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInDown {
+            0% { opacity: 0; transform: translateY(-30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
         </style>
         """,
@@ -38,10 +83,12 @@ def show_contact_page():
         st.markdown("""
         <div class="contact-box">
             <h4>📧 <u>Email Support</u></h4>
-            <ul>
-                <li><strong>General Inquiries:</strong><br><a href="mailto:riaskingofanime@gmail.com">riaskingofanime@gmail.com</a></li>
-                <li><strong>Technical Issues:</strong><br><a href="mailto:riaskingofanime@gmail.com">riaskingofanime@gmail.com</a></li>
-            </ul>
+            <p><span class="pulse-email">📬</span> <strong>General Inquiries:</strong><br>
+            <a href="mailto:riaskingofanime@gmail.com">riaskingofanime@gmail.com</a></p>
+            
+            <p><span class="pulse-email">🛠️</span> <strong>Technical Issues:</strong><br>
+            <a href="mailto:riaskingofanime@gmail.com">riaskingofanime@gmail.com</a></p>
+
             <p>⏱️ <strong>Response Time:</strong> Within 24 hours</p>
         </div>
         """, unsafe_allow_html=True)
