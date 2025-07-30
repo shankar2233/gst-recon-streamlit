@@ -20,9 +20,10 @@ def apply_custom_css():
     /* Global styles */
     .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: white !important;
         min-height: 100vh;
     }
+
     
     /* Main container with glass effect */
     .main .block-container {
