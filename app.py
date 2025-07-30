@@ -88,127 +88,123 @@ def apply_custom_css():
         }
     }
     
-    /* Modern button styles */
+    /* Modern button styles - FIXED VERSION */
     .stButton > button {
         font-family: 'Inter', sans-serif !important;
         font-weight: 500 !important;
         border-radius: 12px !important;
         padding: 0.75rem 1.5rem !important;
         border: none !important;
-        background: white !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         transform: translateY(0) !important;
     }
-    
+
     .stButton > button:hover {
-        transform: translateY(-2px) !important;
+        transform: translateY(-2px) scale(1.02) !important;
         box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
         background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+        color: white !important;
     }
-    
+
     .stButton > button:active {
-        transform: translateY(0) !important;
+        transform: translateY(0) scale(0.98) !important;
         transition: transform 0.1s !important;
     }
-    
-    /* Primary button special styling */
+
+    /* Primary button special styling - FIXED VERSION */
     .stButton > button[kind="primary"] {
         background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important;
+        color: white !important;
         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3) !important;
     }
-    
+
     .stButton > button[kind="primary"]:hover {
         background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%) !important;
+        color: white !important;
         box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
-    }
+        transform: translateY(-2px) scale(1.02) !important;
     
-    /* Success messages with modern styling */
+    /* Success messages with modern styling - FIXED VERSION */
     .success-message {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
         color: white !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
         padding: 1rem 1.5rem !important;
         border-radius: 12px !important;
         margin: 1rem 0 !important;
         box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2) !important;
         animation: slideInLeft 0.5s ease-out !important;
         border-left: 4px solid #065f46 !important;
+        transition: all 0.3s ease !important;
     }
-    
-    @keyframes slideInLeft {
-        from {
-            opacity: 0;
-            transform: translateX(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
+
+    .success-message:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important;
     }
-    
-    /* Info messages */
+
+    /* Info messages - FIXED VERSION */
     .info-message {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
         color: white !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
         padding: 1rem 1.5rem !important;
         border-radius: 12px !important;
         margin: 1rem 0 !important;
         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2) !important;
         animation: slideInRight 0.5s ease-out !important;
         border-left: 4px solid #1e40af !important;
+        transition: all 0.3s ease !important;
     }
-    
-    @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
+
+    .info-message:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3) !important;
     }
-    
-    /* Error messages */
+
+    /* Error messages - FIXED VERSION */
     .error-message {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
         color: white !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
         padding: 1rem 1.5rem !important;
         border-radius: 12px !important;
         margin: 1rem 0 !important;
         box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2) !important;
         animation: shake 0.5s ease-in-out !important;
         border-left: 4px solid #b91c1c !important;
+        transition: all 0.3s ease !important;
     }
-    
-    @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-5px); }
-        75% { transform: translateX(5px); }
+
+    .error-message:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3) !important;
     }
-    
-    /* Warning messages */
+
+    /* Warning messages - FIXED VERSION */
     .warning-message {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: white !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
         padding: 1rem 1.5rem !important;
         border-radius: 12px !important;
         margin: 1rem 0 !important;
         box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2) !important;
         animation: slideInUp 0.5s ease-out !important;
         border-left: 4px solid #b45309 !important;
+        transition: all 0.3s ease !important;
     }
-    
-    @keyframes slideInUp {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+
+    .warning-message:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important;
     }
     
     /* Modern progress bar */
@@ -253,12 +249,40 @@ def apply_custom_css():
         color: #667eea !important;
     }
     
-    /* Modern dataframe styling */
+    /* Modern dataframe styling - FIXED VERSION */
     .stDataFrame {
         animation: fadeInScale 0.6s ease-out !important;
         border-radius: 12px !important;
         overflow: hidden !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+        font-family: 'Inter', sans-serif !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .stDataFrame:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    /* Dataframe headers */
+    .stDataFrame thead th {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        padding: 12px !important;
+    }
+
+    /* Dataframe cells */
+    .stDataFrame tbody td {
+        font-family: 'Inter', sans-serif !important;
+        color: #1e293b !important;
+        padding: 10px !important;
+        transition: background-color 0.2s ease !important;
+    }
+
+    .stDataFrame tbody tr:hover td {
+        background-color: rgba(102, 126, 234, 0.05) !important;
     }
     
     @keyframes fadeInScale {
@@ -312,18 +336,31 @@ def apply_custom_css():
         }
     }
     
-    /* Input fields */
-    .stNumberInput input, .stSelectbox > div > div {
+    /* Input fields - FIXED VERSION */
+    .stNumberInput input, .stSelectbox > div > div, .stTextInput input {
         border-radius: 8px !important;
         border: 2px solid #e2e8f0 !important;
         transition: all 0.3s ease !important;
         font-family: 'Inter', sans-serif !important;
+        color: #1e293b !important;
+        background: white !important;
     }
-    
-    .stNumberInput input:focus, .stSelectbox > div > div:focus {
+
+    .stNumberInput input:focus, .stSelectbox > div > div:focus, .stTextInput input:focus {
         border-color: #667eea !important;
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
         outline: none !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* Selectbox styling */
+    .stSelectbox > div > div {
+        color: #1e293b !important;
+        background: white !important;
+    }
+
+    .stSelectbox > div > div > div {
+        color: #1e293b !important;
     }
     
     /* File uploader */
@@ -370,9 +407,9 @@ def apply_custom_css():
         100% { transform: rotate(360deg); }
     }
     
-    /* Status cards */
+    /* Status cards - FIXED VERSION */
     .status-card {
-        background: rgba(255, 255, 255, 0.9) !important;
+        background: rgba(255, 255, 255, 0.95) !important;
         backdrop-filter: blur(10px) !important;
         border-radius: 12px !important;
         padding: 1.5rem !important;
@@ -381,12 +418,20 @@ def apply_custom_css():
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
         transition: all 0.3s ease !important;
         animation: slideInUp 0.5s ease-out !important;
+        color: #1e293b !important;
+        font-family: 'Inter', sans-serif !important;
     }
-    
+
     .status-card:hover {
-        transform: translateY(-2px) !important;
+        transform: translateY(-2px) scale(1.01) !important;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
     }
+
+    .status-card strong {
+        color: #1e293b !important;
+        font-family: 'Inter', sans-serif !important;
+    }
+
     
     /* Celebration animation */
     .celebration {
@@ -459,7 +504,55 @@ def apply_custom_css():
     .stButton > button:hover {
         transform: scale(1.03) translateY(-2px) !important;
     }
-                    
+    /* Enhanced smooth transitions for all interactive elements */
+    .stButton, .stSelectbox, .stNumberInput, .stTextInput, .stFileUploader, 
+    .stDataFrame, .success-message, .info-message, .error-message, .warning-message,
+    .status-card, .results-container {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    /* Smooth popup animations */
+    @keyframes smoothPopIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    /* Apply popup animation to key elements */
+    .stButton, .success-message, .info-message, .error-message, .warning-message {
+        animation: smoothPopIn 0.4s ease-out !important;
+    }
+
+    /* Enhanced text contrast */
+    h1, h2, h3, h4, h5, h6, p, span, div {
+        color: #1e293b !important;
+        font-family: 'Inter', sans-serif !important;
+    }
+
+    /* Ensure proper text visibility in all containers */
+    .main .block-container, .results-container, .status-card {
+        color: #1e293b !important;
+    }
+
+    /* Fix any remaining text visibility issues */
+    .stMarkdown, .stText {
+        color: #1e293b !important;
+    }
+
+    /* Column headers enhancement */
+    .column-header {
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        font-size: 1.2rem !important;
+        margin-bottom: 1rem !important;
+        font-family: 'Inter', sans-serif !important;
+        text-shadow: none !important;
+    }                   
     </style>
     """, unsafe_allow_html=True)
 
