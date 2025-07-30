@@ -14,20 +14,21 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
-# Import the page modules (will work after you create the files)
+# Import the page modules
 try:
     from pages.about_us import show_about_page
     from pages.privacy_policy import show_privacy_policy
     from pages.contact_us import show_contact_page
     from utils.helpers import apply_custom_css as custom_css
-except ImportError:
-    # Fallback if files don't exist yet
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    # Fallback functions
     def show_about_page():
-        st.write("About Us page - Create pages/about_us.py file")
+        st.write("About Us page - Import failed")
     def show_privacy_policy():
-        st.write("Privacy Policy page - Create pages/privacy_policy.py file")
+        st.write("Privacy Policy page - Import failed") 
     def show_contact_page():
-        st.write("Contact Us page - Create pages/contact_us.py file")
+        st.write("Contact Us page - Import failed")
     def custom_css():
         pass
 
