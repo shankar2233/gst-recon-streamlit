@@ -1668,6 +1668,11 @@ def main_with_navigation():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+    # Google AdSense verification script for site ownership
+    st.markdown("""
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5383286577258931"
+         crossorigin="anonymous"></script>
+    """, unsafe_allow_html=True)
     
     # Hide the default navigation options
     st.markdown("""
