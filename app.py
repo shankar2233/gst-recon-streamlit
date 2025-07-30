@@ -31,7 +31,7 @@ except ImportError as e:
         st.write("Contact Us page - Import failed")
     def custom_css():
         pass
-
+        
 # --- Enhanced Custom CSS for Modern UI ---
 def apply_custom_css():
     st.markdown("""
@@ -1646,13 +1646,14 @@ def main_with_navigation():
     
     # Page routing
     if page == "🏠 Home - Reconciliation Tool":
-        show_reconciliation_tool()
+        show_reconciliation_tool()  # Your existing reconciliation logic
     elif page == "📄 About Us":
         show_about_page()
     elif page == "🔒 Privacy Policy":
         show_privacy_policy()
     elif page == "✉️ Contact Us":
         show_contact_page()
+
 
 def create_required_files():
     """Create required directories and files"""
