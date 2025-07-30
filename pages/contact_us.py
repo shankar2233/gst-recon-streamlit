@@ -11,10 +11,10 @@ def show_contact_page():
         ### 📧 Email Support
         
         **General Inquiries:**  
-        support@gstreconciliation.com
+        riaskingofanime@gmail.com
         
         **Technical Issues:**  
-        tech@gstreconciliation.com
+        riaskingofanime@gmail.com
         
         ⏱️ **Response Time:** Within 24 hours
         """)
