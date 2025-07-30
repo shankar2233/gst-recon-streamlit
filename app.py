@@ -12,6 +12,13 @@ import tempfile
 import sys
 from components.analytics_dashboard import show_analytics_widget, show_detailed_analytics, track_page_visit, track_feature_usage
 from streamlit_option_menu import option_menu
+# Serve ads.txt manually
+if st.query_params.get("ads") == "true":
+    ads_path = "ads.txt"
+    if os.path.exists(ads_path):
+        with open(ads_path, "r") as f:
+            st.write(f.read())
+        st.stop()
 # Add the current directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
