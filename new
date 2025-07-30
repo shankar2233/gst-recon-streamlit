@@ -1,0 +1,991 @@
+import streamlit as st
+import pandas as pd
+from fuzzywuzzy import fuzz, process
+from openpyxl import load_workbook
+from openpyxl.styles import Font
+from openpyxl.utils.dataframe import dataframe_to_rows
+import time
+import os
+from datetime import datetime
+import io
+import tempfile
+import requests
+from streamlit_lottie import st_lottie
+
+# --- Load Lottie Animations ---
+def load_lottie_animation(url):
+    """Load Lottie animation from URL"""
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
+        return None
+
+# Animation URLs
+LOADING_ANIMATION = "https://assets2.lottiefiles.com/packages/lf20_jcikwtux.json"
+SUCCESS_ANIMATION = "https://assets2.lottiefiles.com/packages/lf20_xlkxtmul.json"
+UPLOAD_ANIMATION = "https://assets9.lottiefiles.com/packages/lf20_u25cckyh.json"
+PROCESSING_ANIMATION = "https://assets8.lottiefiles.com/packages/lf20_DMgKk1.json"
+
+# Load animations
+loading_animation = load_lottie_animation(LOADING_ANIMATION)
+success_animation = load_lottie_animation(SUCCESS_ANIMATION)
+upload_animation = load_lottie_animation(UPLOAD_ANIMATION)
+processing_animation = load_lottie_animation(PROCESSING_ANIMATION)
+
+# --- Enhanced Custom CSS for Modern UI with Animations ---
+def apply_custom_css():
+    st.markdown("""
+    <style>
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Root variables */
+    :root {
+        --primary-color: #667eea;
+        --secondary-color: #764ba2;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --error-color: #ef4444;
+        --info-color: #3b82f6;
+        --background-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --card-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Global Styles */
+    .main {
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { 
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+        }
+        50% { 
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+        }
+    }
+    
+    @keyframes bounce {
+        0%, 20%, 53%, 80%, 100% {
+            transform: translate3d(0,0,0);
+        }
+        40%, 43% {
+            transform: translate3d(0, -20px, 0);
+        }
+        70% {
+            transform: translate3d(0, -10px, 0);
+        }
+        90% {
+            transform: translate3d(0, -4px, 0);
+        }
+    }
+    
+    @keyframes shimmer {
+        0% {
+            background-position: -200px 0;
+        }
+        100% {
+            background-position: calc(200px + 100%) 0;
+        }
+    }
+    
+    /* Header Styling */
+    .main-header {
+        background: var(--background-gradient);
+        padding: 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        text-align: center;
+        color: white;
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    .main-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        animation: bounce 2s infinite;
+    }
+    
+    .main-header p {
+        margin: 0.5rem 0 0 0;
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+    
+    /* Animated Cards */
+    .animated-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: var(--card-shadow);
+        margin: 1rem 0;
+        transition: var(--transition);
+        animation: fadeInUp 0.6s ease-out;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .animated-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    }
+    
+    /* Success Message with Animation */
+    .success-message {
+        background: linear-gradient(135deg, var(--success-color), #059669);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+        animation: slideInRight 0.5s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .success-message::before {
+        content: "✨";
+        font-size: 1.2rem;
+        animation: pulse 2s infinite;
+    }
+    
+    /* Info Message with Animation */
+    .info-message {
+        background: linear-gradient(135deg, var(--info-color), #2563eb);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        animation: slideInLeft 0.5s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .info-message::before {
+        content: "💡";
+        font-size: 1.2rem;
+        animation: bounce 2s infinite;
+    }
+    
+    /* Error Message with Animation */
+    .error-message {
+        background: linear-gradient(135deg, var(--error-color), #dc2626);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
+        animation: fadeInUp 0.5s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .error-message::before {
+        content: "⚠️";
+        font-size: 1.2rem;
+        animation: pulse 1s infinite;
+    }
+    
+    /* Warning Message with Animation */
+    .warning-message {
+        background: linear-gradient(135deg, var(--warning-color), #d97706);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
+        animation: slideInRight 0.5s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .warning-message::before {
+        content: "🚨";
+        font-size: 1.2rem;
+        animation: bounce 1.5s infinite;
+    }
+    
+    /* Button Animations */
+    .stButton > button {
+        background: var(--background-gradient) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 2rem !important;
+        font-weight: 600 !important;
+        transition: var(--transition) !important;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-3px) !important;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+        animation: pulse 1s infinite !important;
+    }
+    
+    .stButton > button:active {
+        transform: translateY(-1px) !important;
+    }
+    
+    /* File Uploader Animation */
+    .upload-area {
+        border: 3px dashed var(--primary-color);
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+        transition: var(--transition);
+        animation: fadeInUp 0.6s ease-out;
+        margin: 1rem 0;
+    }
+    
+    .upload-area:hover {
+        border-color: var(--secondary-color);
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        transform: scale(1.02);
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        animation: bounce 2s infinite;
+    }
+    
+    /* Progress Bar Animation */
+    .stProgress > div > div > div {
+        background: var(--background-gradient) !important;
+        animation: shimmer 2s infinite linear;
+        background-size: 200px 100%;
+    }
+    
+    /* Metric Cards Animation */
+    .metric-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: var(--card-shadow);
+        text-align: center;
+        transition: var(--transition);
+        animation: fadeInUp 0.6s ease-out;
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        animation: pulse 2s infinite;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: #6b7280;
+        margin-top: 0.5rem;
+    }
+    
+    /* Loading Spinner */
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+    }
+    
+    /* Sidebar Animation */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    /* Table Animation */
+    .dataframe {
+        animation: fadeInUp 0.8s ease-out;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+    }
+    
+    /* Download Button Special Animation */
+    .download-button {
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        animation: pulse 2s infinite;
+    }
+    
+    /* Status Indicators */
+    .status-perfect {
+        color: var(--success-color);
+        font-weight: 600;
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    .status-partial {
+        color: var(--warning-color);
+        font-weight: 600;
+        animation: fadeInUp 0.7s ease-out;
+    }
+    
+    .status-missing {
+        color: var(--error-color);
+        font-weight: 600;
+        animation: fadeInUp 0.9s ease-out;
+    }
+    
+    /* Responsive Animations */
+    @media (max-width: 768px) {
+        .main-header h1 {
+            font-size: 2rem;
+        }
+        
+        .animated-card {
+            margin: 0.5rem 0;
+            padding: 1rem;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- Enhanced Message Functions with Animations ---
+def show_success_message(message):
+    col1, col2 = st.columns([1, 6])
+    
+    with col1:
+        if success_animation:
+            st_lottie(success_animation, height=60, width=60, key=f"success_{hash(message)}", loop=False)
+    
+    with col2:
+        st.markdown(f'''
+        <div class="success-message">
+            <strong>{message}</strong>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    # Add celebration effect
+    time.sleep(0.5)
+    st.balloons()
+
+def show_info_message(message):
+    col1, col2 = st.columns([1, 6])
+    
+    with col1:
+        if loading_animation:
+            st_lottie(loading_animation, height=50, width=50, key=f"info_{hash(message)}")
+    
+    with col2:
+        st.markdown(f'''
+        <div class="info-message">
+            <strong>{message}</strong>
+        </div>
+        ''', unsafe_allow_html=True)
+
+def show_error_message(message):
+    st.markdown(f'''
+    <div class="error-message">
+        <strong>{message}</strong>
+    </div>
+    ''', unsafe_allow_html=True)
+
+def show_warning_message(message):
+    st.markdown(f'''
+    <div class="warning-message">
+        <strong>{message}</strong>
+    </div>
+    ''', unsafe_allow_html=True)
+
+# --- Enhanced Progress Bar with Animation ---
+def create_animated_progress_bar(message="Processing..."):
+    col1, col2 = st.columns([1, 4])
+    
+    with col1:
+        if processing_animation:
+            st_lottie(processing_animation, height=80, width=80, key=f"progress_{hash(message)}")
+    
+    with col2:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        status_text.markdown(f"**{message}**")
+    
+    return progress_bar, status_text
+
+# --- Animated File Uploader ---
+def create_animated_file_uploader():
+    """Enhanced file upload area with animation"""
+    
+    # Create animated upload area
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        if upload_animation:
+            st_lottie(upload_animation, height=150, width=150, key="upload_animation")
+        
+        st.markdown('''
+        <div class="upload-area">
+            <div class="upload-icon">📊</div>
+            <h3>Upload Your Excel File</h3>
+            <p>Drag and drop your file with Tally and GSTR-2A sheets</p>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "Choose Excel file",
+        type=['xlsx', 'xls'],
+        help="Upload your Excel file with Tally and GSTR-2A sheets",
+        label_visibility="collapsed"
+    )
+    
+    return uploaded_file
+
+# --- Animated Metrics Display ---
+def display_animated_metrics(summary_data):
+    """Display metrics with staggered animations"""
+    st.markdown("## 📊 Reconciliation Summary")
+    
+    # Create columns for metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    metrics = [
+        ("Perfect Matches", summary_data.get('perfect', 0), "🎯", col1),
+        ("Partial Matches", summary_data.get('partial', 0), "🔄", col2),
+        ("Tally Only", summary_data.get('tally_only', 0), "📋", col3),
+        ("GSTR-2A Only", summary_data.get('gstr_only', 0), "🏛️", col4)
+    ]
+    
+    for i, (label, value, icon, col) in enumerate(metrics):
+        with col:
+            # Staggered animation delay
+            time.sleep(i * 0.1)
+            
+            st.markdown(f'''
+            <div class="metric-card" style="animation-delay: {i * 0.1}s;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">{icon}</div>
+                <div class="metric-value">{value}</div>
+                <div class="metric-label">{label}</div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+# --- Utility Functions (keeping original functionality) ---
+def get_column(df, colname):
+    """FIXED: Handle integer column names properly"""
+    for col in df.columns:
+        col_str = str(col).strip().lower()
+        colname_str = str(colname).strip().lower()
+        if col_str == colname_str:
+            return col
+    raise KeyError(f"Column '{colname}' not found. Available columns: {df.columns.tolist()}")
+
+def get_raw_unique_names(series):
+    return pd.Series(series).dropna().drop_duplicates().tolist()
+
+def fix_tally_columns(df_tally):
+    """Fix Tally sheet column structure when headers are wrong"""
+    expected_cols = ['GSTIN of supplier', 'Supplier', 'Invoice number', 'Invoice Date', 'Invoice Value', 'Rate', 'Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT tax', 'Cess']
+    
+    if (len(df_tally.columns) >= 2 and str(df_tally.columns[0]).startswith('Unnamed') and not any(col.lower().strip() == 'supplier' for col in df_tally.columns)):
+        new_columns = []
+        for i, col in enumerate(df_tally.columns):
+            if i < len(expected_cols):
+                new_columns.append(expected_cols[i])
+            else:
+                new_columns.append(f"Column_{i}")
+        df_tally.columns = new_columns
+    
+    return df_tally
+
+def create_default_format():
+    """Create default Excel format for users"""
+    # Sample data for Tally sheet
+    tally_data = {
+        'GSTIN of supplier': ['27AABCU9603R1ZX', '27AABCU9603R1ZY', ''],
+        'Supplier': ['ABC Private Ltd', 'XYZ Industries', 'GHI Enterprises'],
+        'Invoice number': ['INV-0001', 'INV-0002', 'INV-0003'],
+        'Invoice Date': ['15-04-2024', '20-04-2024', '25-04-2024'],
+        'Invoice Value': [118000, 177000, 112000],
+        'Rate': [18, 18, 12],
+        'Taxable Value': [100000, 150000, 100000],
+        'Integrated Tax': [0, 27000, 0],
+        'Central Tax': [9000, 0, 6000],
+        'State/UT tax': [9000, 0, 6000],
+        'Cess': [0, 0, 0]
+    }
+    
+    # Sample data for GSTR-2A sheet
+    gstr_data = {
+        'GSTIN of supplier': ['27AABCU9603R1ZX', '27AABCU9603R1ZZ', ''],
+        'Supplier': ['ABC Private Limited', 'DEF Corporation', 'GHI Enterprises'],
+        'Invoice number': ['INV-0001', 'INV-0004', 'INV-0003'],
+        'Invoice Date': ['15-04-2024', '25-04-2024', '25-04-2024'],
+        'Invoice Value': [118000, 89600, 112000],
+        'Rate': [18, 12, 12],
+        'Taxable Value': [100000, 80000, 100000],
+        'Integrated Tax': [0, 0, 0],
+        'Central Tax': [9000, 4800, 6000],
+        'State/UT tax': [9000, 4800, 6000],
+        'Cess': [0, 0, 0]
+    }
+    
+    df_tally = pd.DataFrame(tally_data)
+    df_gstr = pd.DataFrame(gstr_data)
+    
+    # Create Excel in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Add empty row for header space
+        empty_row = pd.DataFrame([[''] * len(df_tally.columns)], columns=df_tally.columns)
+        empty_row.to_excel(writer, sheet_name='Tally', index=False, header=False)
+        df_tally.to_excel(writer, sheet_name='Tally', index=False, startrow=1)
+        
+        empty_row_gstr = pd.DataFrame([[''] * len(df_gstr.columns)], columns=df_gstr.columns)
+        empty_row_gstr.to_excel(writer, sheet_name='GSTR-2A', index=False, header=False)
+        df_gstr.to_excel(writer, sheet_name='GSTR-2A', index=False, startrow=1)
+    
+    output.seek(0)
+    return output.getvalue()
+
+def show_help_instructions():
+    """Enhanced help instructions with animations"""
+    st.markdown("""
+    <div class="animated-card">
+    <h3>📚 How to Use This Tool</h3>
+    
+    <h4>📁 File Format Requirements:</h4>
+    <ul>
+        <li><strong>File Type:</strong> Excel (.xlsx or .xls)</li>
+        <li><strong>Required Sheets:</strong> 'Tally' and 'GSTR-2A'</li>
+        <li><strong>Columns Required:</strong></li>
+        <ul>
+            <li>GSTIN of supplier</li>
+            <li>Supplier</li>
+            <li>Invoice number</li>
+            <li>Invoice Date</li>
+            <li>Invoice Value</li>
+            <li>Rate</li>
+            <li>Taxable Value</li>
+            <li>Integrated Tax</li>
+            <li>Central Tax</li>
+            <li>State/UT tax</li>
+            <li>Cess</li>
+        </ul>
+    </ul>
+    
+    <h4>🔄 Process Steps:</h4>
+    <ol>
+        <li><strong>Upload File:</strong> Select your Excel file with both sheets</li>
+        <li><strong>Review Data:</strong> Check if data is loaded correctly</li>
+        <li><strong>Run Reconciliation:</strong> Click the reconcile button</li>
+        <li><strong>Download Report:</strong> Get detailed Excel report with results</li>
+    </ol>
+    
+    <h4>📊 Report Sections:</h4>
+    <ul>
+        <li><strong>Perfect Matches:</strong> Exact matches between Tally and GSTR-2A</li>
+        <li><strong>Partial Matches:</strong> Records with minor differences</li>
+        <li><strong>Tally Only:</strong> Records present only in Tally</li>
+        <li><strong>GSTR-2A Only:</strong> Records present only in GSTR-2A</li>
+        <li><strong>Summary:</strong> Statistical overview of reconciliation</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- Main Reconciliation Logic (keeping original functionality) ---
+def reconcile_invoices(df_tally, df_gstr):
+    """Main reconciliation function with enhanced progress tracking"""
+    
+    # Initialize animated progress
+    progress_bar, status_text = create_animated_progress_bar("Starting reconciliation process...")
+    
+    perfect_matches = []
+    partial_matches = []
+    tally_only = []
+    gstr_only = []
+    
+    # Update progress
+    progress_bar.progress(10)
+    status_text.markdown("**🔍 Analyzing Tally records...**")
+    time.sleep(0.5)
+    
+    # Process Tally records
+    tally_processed = set()
+    gstr_processed = set()
+    
+    for tally_idx, tally_row in df_tally.iterrows():
+        progress_bar.progress(10 + (tally_idx / len(df_tally)) * 40)
+        
+        best_match = None
+        best_score = 0
+        match_type = None
+        
+        for gstr_idx, gstr_row in df_gstr.iterrows():
+            if gstr_idx in gstr_processed:
+                continue
+            
+            # Calculate match score
+            score = 0
+            criteria_met = 0
+            total_criteria = 4
+            
+            # GSTIN match (most important)
+            if str(tally_row['GSTIN of supplier']).strip() == str(gstr_row['GSTIN of supplier']).strip():
+                score += 40
+                criteria_met += 1
+            
+            # Invoice number match
+            if str(tally_row['Invoice number']).strip().lower() == str(gstr_row['Invoice number']).strip().lower():
+                score += 30
+                criteria_met += 1
+            
+            # Invoice value match (within tolerance)
+            try:
+                tally_val = float(tally_row['Invoice Value'])
+                gstr_val = float(gstr_row['Invoice Value'])
+                if abs(tally_val - gstr_val) <= 1:  # 1 rupee tolerance
+                    score += 20
+                    criteria_met += 1
+            except:
+                pass
+            
+            # Supplier name fuzzy match
+            supplier_match = fuzz.ratio(str(tally_row['Supplier']).strip().lower(), 
+                                      str(gstr_row['Supplier']).strip().lower())
+            if supplier_match >= 80:
+                score += 10
+                criteria_met += 1
+            
+            if score > best_score:
+                best_score = score
+                best_match = gstr_idx
+                if criteria_met >= 3:
+                    match_type = "perfect"
+                elif criteria_met >= 2:
+                    match_type = "partial"
+        
+        # Categorize the match
+        if best_match is not None and best_score >= 60:
+            match_data = {
+                'Tally_Index': tally_idx,
+                'GSTR_Index': best_match,
+                'Match_Score': best_score,
+                'Tally_GSTIN': tally_row['GSTIN of supplier'],
+                'GSTR_GSTIN': df_gstr.iloc[best_match]['GSTIN of supplier'],
+                'Tally_Supplier': tally_row['Supplier'],
+                'GSTR_Supplier': df_gstr.iloc[best_match]['Supplier'],
+                'Tally_Invoice_No': tally_row['Invoice number'],
+                'GSTR_Invoice_No': df_gstr.iloc[best_match]['Invoice number'],
+                'Tally_Invoice_Value': tally_row['Invoice Value'],
+                'GSTR_Invoice_Value': df_gstr.iloc[best_match]['Invoice Value'],
+                'Match_Type': match_type
+            }
+            
+            if match_type == "perfect":
+                perfect_matches.append(match_data)
+            else:
+                partial_matches.append(match_data)
+            
+            tally_processed.add(tally_idx)
+            gstr_processed.add(best_match)
+        else:
+            tally_only.append(tally_row.to_dict())
+            tally_processed.add(tally_idx)
+    
+    # Update progress
+    progress_bar.progress(60)
+    status_text.markdown("**🔍 Processing remaining GSTR-2A records...**")
+    time.sleep(0.5)
+    
+    # Add remaining GSTR records to gstr_only
+    for gstr_idx, gstr_row in df_gstr.iterrows():
+        if gstr_idx not in gstr_processed:
+            gstr_only.append(gstr_row.to_dict())
+        progress_bar.progress(60 + (gstr_idx / len(df_gstr)) * 30)
+    
+    # Final progress update
+    progress_bar.progress(100)
+    status_text.markdown("**✅ Reconciliation completed successfully!**")
+    
+    return perfect_matches, partial_matches, tally_only, gstr_only
+
+def create_excel_report(perfect_matches, partial_matches, tally_only, gstr_only, df_tally, df_gstr):
+    """Create comprehensive Excel report with enhanced formatting"""
+    
+    # Create animated progress for report generation
+    progress_bar, status_text = create_animated_progress_bar("Generating comprehensive report...")
+    
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        progress_bar.progress(20)
+        status_text.markdown("**📊 Creating summary dashboard...**")
+        
+        # Summary Sheet
+        summary_data = {
+            'Metric': ['Total Tally Records', 'Total GSTR-2A Records', 'Perfect Matches', 
+                      'Partial Matches', 'Tally Only Records', 'GSTR-2A Only Records',
+                      'Match Rate (%)', 'Reconciliation Date'],
+            'Value': [len(df_tally), len(df_gstr), len(perfect_matches), 
+                     len(partial_matches), len(tally_only), len(gstr_only),
+                     round((len(perfect_matches) + len(partial_matches)) / len(df_tally) * 100, 2) if len(df_tally) > 0 else 0,
+                     datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+        }
+        
+        df_summary = pd.DataFrame(summary_data)
+        df_summary.to_excel(writer, sheet_name='Summary', index=False)
+        
+        progress_bar.progress(40)
+        status_text.markdown("**🎯 Processing perfect matches...**")
+        
+        # Perfect Matches Sheet
+        if perfect_matches:
+            df_perfect = pd.DataFrame(perfect_matches)
+            df_perfect.to_excel(writer, sheet_name='Perfect Matches', index=False)
+        
+        progress_bar.progress(60)
+        status_text.markdown("**🔄 Processing partial matches...**")
+        
+        # Partial Matches Sheet
+        if partial_matches:
+            df_partial = pd.DataFrame(partial_matches)
+            df_partial.to_excel(writer, sheet_name='Partial Matches', index=False)
+        
+        progress_bar.progress(80)
+        status_text.markdown("**📋 Processing remaining records...**")
+        
+        # Tally Only Sheet
+        if tally_only:
+            df_tally_only = pd.DataFrame(tally_only)
+            df_tally_only.to_excel(writer, sheet_name='Tally Only', index=False)
+        
+        # GSTR Only Sheet
+        if gstr_only:
+            df_gstr_only = pd.DataFrame(gstr_only)
+            df_gstr_only.to_excel(writer, sheet_name='GSTR-2A Only', index=False)
+        
+        progress_bar.progress(100)
+        status_text.markdown("**✅ Report generation completed!**")
+    
+    output.seek(0)
+    return output.getvalue()
+
+# --- Main Application ---
+def main():
+    # Apply custom CSS
+    apply_custom_css()
+    
+    # Animated Header
+    st.markdown("""
+    <div class="main-header">
+        <h1>🎯 GST Invoice Reconciliation Tool</h1>
+        <p>Advanced reconciliation between Tally and GSTR-2A with modern animations</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Sidebar with animations
+    with st.sidebar:
+        st.markdown("""
+        <div class="animated-card">
+            <h3>🚀 Features</h3>
+            <ul>
+                <li>✨ Smart fuzzy matching</li>
+                <li>📊 Detailed Excel reports</li>
+                <li>🎯 Perfect & partial matches</li>
+                <li>📈 Statistical analysis</li>
+                <li>🔄 Real-time progress</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("📚 Show Help"):
+            show_help_instructions()
+        
+        if st.button("📥 Download Sample Format"):
+            sample_file = create_default_format()
+            st.download_button(
+                label="📁 Download Sample Excel",
+                data=sample_file,
+                file_name="GST_Reconciliation_Template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    
+    # Main content area
+    tab1, tab2 = st.tabs(["🔄 Reconciliation", "📊 Analytics"])
+    
+    with tab1:
+        # File upload with animation
+        uploaded_file = create_animated_file_uploader()
+        
+        if uploaded_file is not None:
+            try:
+                # Show file details with animation
+                st.markdown(f"""
+                <div class="animated-card">
+                    <h4>📁 File Information</h4>
+                    <p><strong>Name:</strong> {uploaded_file.name}</p>
+                    <p><strong>Size:</strong> {uploaded_file.size / 1024:.2f} KB</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Load data with animated progress
+                progress_bar, status_text = create_animated_progress_bar("Loading and validating data...")
+                
+                progress_bar.progress(25)
+                status_text.markdown("**📖 Reading Excel file...**")
+                
+                # Read Excel file
+                excel_data = pd.ExcelFile(uploaded_file)
+                sheet_names = excel_data.sheet_names
+                
+                progress_bar.progress(50)
+                status_text.markdown("**🔍 Validating sheet structure...**")
+                
+                # Validate required sheets
+                if 'Tally' not in sheet_names or 'GSTR-2A' not in sheet_names:
+                    show_error_message("Required sheets 'Tally' and 'GSTR-2A' not found!")
+                    st.stop()
+                
+                progress_bar.progress(75)
+                status_text.markdown("**📊 Loading data...**")
+                
+                # Load sheets
+                df_tally = pd.read_excel(uploaded_file, sheet_name='Tally')
+                df_gstr = pd.read_excel(uploaded_file, sheet_name='GSTR-2A')
+                
+                # Fix column structure if needed
+                df_tally = fix_tally_columns(df_tally)
+                
+                progress_bar.progress(100)
+                status_text.markdown("**✅ Data loaded successfully!**")
+                
+                # Display data preview with animations
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("""
+                    <div class="animated-card">
+                        <h4>📋 Tally Data Preview</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.dataframe(df_tally.head(), use_container_width=True)
+                
+                with col2:
+                    st.markdown("""
+                    <div class="animated-card">
+                        <h4>🏛️ GSTR-2A Data Preview</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.dataframe(df_gstr.head(), use_container_width=True)
+                
+                # Reconciliation button with animation
+                if st.button("🚀 Start Reconciliation", use_container_width=True):
+                    with st.spinner("🔄 Processing reconciliation..."):
+                        # Run reconciliation
+                        perfect_matches, partial_matches, tally_only, gstr_only = reconcile_invoices(df_tally, df_gstr)
+                        
+                        # Display animated results
+                        summary_data = {
+                            'perfect': len(perfect_matches),
+                            'partial': len(partial_matches),
+                            'tally_only': len(tally_only),
+                            'gstr_only': len(gstr_only)
+                        }
+                        
+                        display_animated_metrics(summary_data)
+                        
+                        # Generate report
+                        excel_report = create_excel_report(perfect_matches, partial_matches, tally_only, gstr_only, df_tally, df_gstr)
+                        
+                        # Success message with animation
+                        show_success_message("Reconciliation completed successfully! 🎉")
+                        
+                        # Download button with special animation
+                        st.markdown("""
+                        <div class="animated-card">
+                            <h4>📥 Download Complete Report</h4>
+                            <p>Your comprehensive reconciliation report is ready for download.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.download_button(
+                            label="📊 Download Reconciliation Report",
+                            data=excel_report,
+                            file_name=f"GST_Reconciliation_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                        
+                        # Add celebration
+                        st.snow()
+                        
+            except Exception as e:
+                show_error_message(f"Error processing file: {str(e)}")
+    
+    with tab2:
+        st.markdown("""
+        <div class="animated-card">
+            <h3>📈 Analytics Dashboard</h3>
+            <p>Upload and process your data to see detailed analytics and insights.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if 'df_tally' not in locals():
+            show_info_message("Please upload and process your data in the Reconciliation tab first.")
+
+if __name__ == "__main__":
+    # Set page config
+    st.set_page_config(
+        page_title="GST Reconciliation Tool",
+        page_icon="🎯",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    main()
