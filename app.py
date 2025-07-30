@@ -1669,8 +1669,12 @@ def main_with_navigation():
         initial_sidebar_state="expanded"
     )
     
-    # Show analytics widget in top-right corner
-    show_analytics_widget()
+    # Add analytics toggle in sidebar
+    show_analytics = st.sidebar.checkbox("Show Live Analytics", value=False)
+    
+    # Conditionally show analytics widget
+    if show_analytics:
+        show_analytics_widget()
     
     # Sidebar navigation
     st.sidebar.title("🔍 GST Reconciliation Tool")
