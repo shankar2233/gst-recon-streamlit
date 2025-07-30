@@ -96,7 +96,7 @@ def apply_custom_css():
         border-radius: 12px !important;
         padding: 0.75rem 1.5rem !important;
         border: none !important;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: white !important;
         color: white !important;
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
