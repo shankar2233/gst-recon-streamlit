@@ -11,6 +11,7 @@ import io
 import tempfile
 import sys
 from components.analytics_dashboard import show_analytics_widget, show_detailed_analytics, track_page_visit, track_feature_usage
+from streamlit_option_menu import option_menu
 # Add the current directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
