@@ -1,16 +1,12 @@
 import streamlit as st
 from utils.analytics import analytics_manager
-import plotly.graph_objects as go
-import plotly.express as px
 from datetime import datetime, timedelta
 
 def show_analytics_widget():
     """Display compact analytics widget in top-right corner"""
     
-    # Get real-time stats
     stats = analytics_manager.get_real_time_stats()
     
-    # Custom CSS for the analytics widget
     st.markdown("""
     <style>
     .analytics-widget {
@@ -74,7 +70,6 @@ def show_analytics_widget():
     </style>
     """, unsafe_allow_html=True)
     
-    # Analytics widget HTML
     widget_html = f"""
     <div class="analytics-widget">
         <div class="analytics-header">
@@ -112,11 +107,6 @@ def show_analytics_widget():
         </div>
         
         <div class="stat-row">
-            <span class="stat-label">📈 Records Processed:</span>
-            <span class="stat-value">{stats['total_records_processed']:,}</span>
-        </div>
-        
-        <div class="stat-row">
             <span class="stat-label">⏱️ Session Duration:</span>
             <span class="stat-value">{stats['session_duration']} min</span>
         </div>
@@ -126,11 +116,10 @@ def show_analytics_widget():
     st.markdown(widget_html, unsafe_allow_html=True)
 
 def show_detailed_analytics():
-    """Show detailed analytics dashboard page"""
+    """Show detailed analytics dashboard page without plotly"""
     
     st.title("📊 Analytics Dashboard")
     
-    # Get comprehensive stats
     stats = analytics_manager.get_real_time_stats()
     
     # Real-time metrics row
@@ -171,31 +160,27 @@ def show_detailed_analytics():
             delta="All Time"
         )
     
-    # Charts section
+    # Simple charts using Streamlit's built-in charting
     st.markdown("---")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # Page views chart
+        # Page views using simple bar chart
+        st.markdown("### 📊 Page Views Distribution")
         page_views = stats['page_views']
         if page_views:
-            fig = px.pie(
-                values=list(page_views.values()),
-                names=list(page_views.keys()),
-                title="Page Views Distribution"
-            )
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            import pandas as pd
+            df = pd.DataFrame(list(page_views.items()), columns=['Page', 'Views'])
+            st.bar_chart(df.set_index('Page'))
     
     with col2:
-        # Weekly visits chart (mock data for demonstration)
-        dates = [(datetime.now() - timedelta(days=i)).strftime("%m/%d") for i in range(6, -1, -1)]
-        visits = [stats['week_visits'] // 7 + i * 2 for i in range(7)]  # Mock daily distribution
-        
-        fig = go.Figure(data=go.Scatter(x=dates, y=visits, mode='lines+markers'))
-        fig.update_layout(title="Weekly Visit Trend", height=300)
-        st.plotly_chart(fig, use_container_width=True)
+        # Simple metrics display
+        st.markdown("### 📈 Key Metrics")
+        st.write(f"**Total Files Uploaded:** {stats['total_files_uploaded']:,}")
+        st.write(f"**Total Reports Downloaded:** {stats['total_reports_downloaded']:,}")
+        st.write(f"**Average Processing Time:** {stats['average_processing_time']}s")
+        st.write(f"**Current Session:** {stats['session_duration']} min")
     
     # Usage statistics
     st.markdown("## 📈 Usage Statistics")
