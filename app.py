@@ -28,25 +28,23 @@ def apply_custom_css():
     /* Main container with glass effect */
     .main .block-container {
         background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(20px) !important;
         border-radius: 20px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08) !important;
         padding: 2rem !important;
-        margin: 1rem !important;
-        animation: slideInFromTop 0.8s ease-out !important;
+        margin: 1rem auto !important;
+        transition: all 0.4s ease !important;
+        animation: smoothFadeIn 0.7s ease-out forwards !important;
+        transform: translateY(20px);
+        opacity: 0;
     }
-    
-    @keyframes slideInFromTop {
-        from {
-            opacity: 0;
-            transform: translateY(-30px);
-        }
+
+    @keyframes smoothFadeIn {
         to {
-            opacity: 1;
             transform: translateY(0);
+            opacity: 1;
         }
     }
+
     
     /* Modern title with gradient */
     .main-title {
@@ -433,6 +431,35 @@ def apply_custom_css():
             padding: 1rem !important;
         }
     }
+    /* Smooth scroll and transition for all */
+    html, body {
+        scroll-behavior: smooth;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    * {
+        transition: all 0.25s ease-in-out;
+    }
+
+    /* Smooth pop-in for result containers and cards */
+    .results-container, .status-card {
+        animation: popIn 0.5s ease-out forwards;
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    @keyframes popIn {
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    /* Pop-up buttons */
+    .stButton > button:hover {
+        transform: scale(1.03) translateY(-2px) !important;
+    }
+                    
     </style>
     """, unsafe_allow_html=True)
 
