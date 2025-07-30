@@ -1659,7 +1659,7 @@ def show_reconciliation_tool():
         st.markdown('</div>', unsafe_allow_html=True)
 
 def main_with_navigation():
-    """Enhanced main function with navigation and analytics"""
+    """Enhanced main function with vertical list navigation"""
     
     # Page configuration
     st.set_page_config(
@@ -1669,37 +1669,53 @@ def main_with_navigation():
         initial_sidebar_state="expanded"
     )
     
-    # Add analytics toggle in sidebar
-    show_analytics = st.sidebar.checkbox("Show Live Analytics", value=False)
+    # Show analytics widget (keep if you want it)
+    # show_analytics_widget()
     
-    # Conditionally show analytics widget
-    if show_analytics:
-        show_analytics_widget()
+    # Sidebar with vertical navigation list
+    with st.sidebar:
+        st.title("🔍 GST Reconciliation Tool")
+        st.markdown("---")
+        
+        # Vertical navigation menu using option_menu
+        selected = option_menu(
+            menu_title=None,  # Hide the menu title
+            options=[
+                "🏠 Home",
+                "📄 About", 
+                "🔒 Privacy",
+                "✉️ Contact"
+            ],
+            icons=['house', 'info-circle', 'shield-lock', 'envelope'],  # Bootstrap icons
+            menu_icon="cast",
+            default_index=0,
+            orientation="vertical",  # Vertical list layout
+            styles={
+                "container": {"padding": "0!important", "background-color": "transparent"},
+                "icon": {"color": "#667eea", "font-size": "18px"}, 
+                "nav-link": {
+                    "font-size": "16px", 
+                    "text-align": "left", 
+                    "margin": "0px",
+                    "padding": "10px 15px",
+                    "--hover-color": "#f0f2f6"
+                },
+                "nav-link-selected": {"background-color": "#667eea", "color": "white"},
+            }
+        )
     
-    # Sidebar navigation
-    st.sidebar.title("🔍 GST Reconciliation Tool")
-    st.sidebar.markdown("---")
-    
-    page = st.sidebar.selectbox("📋 Navigate to:", [
-        "🏠 Home - Reconciliation Tool",
-        "📄 About Us", 
-        "🔒 Privacy Policy",
-        "✉️ Contact Us",
-        "📊 Analytics Dashboard"  # ADD this new menu item
-    ])
-
-    # Page routing with analytics tracking
-    if page == "🏠 Home - Reconciliation Tool":
-        track_page_visit("home")  # ADD this line
+    # Page routing based on simplified names
+    if selected == "🏠 Home":
+        track_page_visit("home")
         show_reconciliation_tool()
-    elif page == "📄 About Us":
-        track_page_visit("about")  # ADD this line
+    elif selected == "📄 About":
+        track_page_visit("about")
         show_about_page()
-    elif page == "🔒 Privacy Policy":
-        track_page_visit("privacy")  # ADD this line
+    elif selected == "🔒 Privacy":
+        track_page_visit("privacy")
         show_privacy_policy()
-    elif page == "✉️ Contact Us":
-        track_page_visit("contact")  # ADD this line
+    elif selected == "✉️ Contact":
+        track_page_visit("contact")
         show_contact_page()
     elif page == "📊 Analytics Dashboard":  # ADD this entire elif block
         track_page_visit("analytics")
