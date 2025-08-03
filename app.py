@@ -947,22 +947,13 @@ def show_reconciliation_tool():
     if st.session_state.uploaded_file is None:
         show_info_message("👆 Please upload an Excel file to continue")
         return
-    st.markdown("""
-        <h2 style='text-align: center;'>📋 Reconciliation Steps</h2>
-        <div style='font-size: 24px; margin: 20px 0;'>
-            <p>✅ <b>Step 1:</b> 🚀 Fuzzy Matching</p>
-            <p>✅ <b>Step 2:</b> 🔁 Name Replacement</p>
-            <p>✅ <b>Step 3:</b> 📊 GST Reconciliation</p>
-            <p>✅ <b>Step 4:</b> 🧾 Invoice Reconciliation</p>
-        </div>
-    """, unsafe_allow_html=True)
 
     # Main functionality tabs with animations
     tab1, tab2, tab3, tab4 = st.tabs([
-        "🚀 Fuzzy Matching",
-        "🔁 Name Replacement", 
-        "📊 GST Reconciliation",
-        "🧾 Invoice Reconciliation"
+        "Step - 1_🚀 Fuzzy Matching",
+        "Step - 2_🔁 Name Replacement", 
+        "Step - 3_📊 GST Reconciliation",
+        "Step - 4_🧾 Invoice Reconciliation"
     ])
 
     with tab1:
@@ -1771,4 +1762,5 @@ def create_required_files():
 if __name__ == "__main__":
     create_required_files()
     main_with_navigation()
+
 
